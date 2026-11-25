@@ -17,7 +17,9 @@ import android.opengl.GLES20
 import android.opengl.GLUtils
 import android.view.Surface
 import com.example.data.VideoGalleryRepository
+import com.example.model.ActorRole
 import com.example.model.AnimationStyle
+import com.example.model.ProductionMode
 import com.example.model.TimelineScene
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -63,7 +65,10 @@ class DeterministicVideoExporter(
         displayName: String,
         tempCacheDir: File,
         onRenderProgress: (Float, String) -> Unit,
-        onMuxProgress: (String) -> Unit
+        onMuxProgress: (String) -> Unit,
+        productionMode: ProductionMode = ProductionMode.FULL_AI_STORY,
+        customSprites: Map<ActorRole, Bitmap> = emptyMap(),
+        externalClipFrameSource: ExternalClipFrameSource? = null
     ): ExportResult = withContext(Dispatchers.Default) {
         val totalFrames = ceil((totalDurationMs / 1000.0) * VIDEO_FPS).toInt().coerceAtLeast(30)
         val tempMp4File = File(tempCacheDir, "render_${UUID.randomUUID()}.mp4")
@@ -281,7 +286,12 @@ class DeterministicVideoExporter(
                     scenes = scenes,
                     style = style,
                     currentMs = currentMs,
-                    fallbackBackdropCache = fallbackBackdropCache
+                    fallbackBackdropCache = fallbackBackdropCache,
+                    productionMode = productionMode,
+                    customSprites = customSprites,
+                    externalClipFrameProvider = externalClipFrameSource?.let { source ->
+                        { sceneIdx, localMs -> source.getFrameBitmap(sceneIdx, localMs) }
+                    }
                 )
 
                 GLES20.glViewport(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)

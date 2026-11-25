@@ -70,10 +70,14 @@ object WorldFxAndCaptionRenderer {
                     canvas.drawRect(gx, gy, gx + 3f * u, gy + 3f * u, grainPaint)
                 }
             }
-            AnimationStyle.FLAT_VECTOR, AnimationStyle.TECH_EXPLAINER -> {
-                // Floating subtle infographic accents / HUD blueprint grid dots
+            AnimationStyle.FLAT_VECTOR, AnimationStyle.TECH_EXPLAINER, AnimationStyle.CROSS_SECTION -> {
+                // Floating subtle infographic accents (no cluttered grid lines)
                 val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = if (style == AnimationStyle.TECH_EXPLAINER) 0x4400E5FF else 0x332DD4BF
+                    color = when (style) {
+                        AnimationStyle.TECH_EXPLAINER -> 0x4400E5FF
+                        AnimationStyle.CROSS_SECTION -> 0x4822D3EE
+                        else -> 0x332DD4BF
+                    }
                     setStyle(Paint.Style.STROKE)
                     strokeWidth = 5f * u
                 }
@@ -130,8 +134,12 @@ object WorldFxAndCaptionRenderer {
         val endIdx = (startIdx + chunkSize).coerceAtMost(words.size)
         val visibleWords = words.subList(startIdx, endIdx)
 
-        val captionCenterY = h * 0.80f
-        val textSizePx = 74f * u
+        val captionCenterY = if (style == AnimationStyle.VIRAL_2D_EXPLAINER) {
+            h * (1480f / 1920f)
+        } else {
+            h * (1520f / 1920f)
+        }
+        val textSizePx = if (style == AnimationStyle.VIRAL_2D_EXPLAINER) 82f * u else 74f * u
 
         val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = textSizePx
@@ -143,6 +151,7 @@ object WorldFxAndCaptionRenderer {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             setStyle(Paint.Style.STROKE)
             strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
             textAlign = Paint.Align.LEFT
         }
 
@@ -152,23 +161,30 @@ object WorldFxAndCaptionRenderer {
         val totalW = wordWidths.sum() + spaceW * (visibleWords.size - 1).coerceAtLeast(0)
         val startX = (w - totalW) * 0.5f
 
-        // Background pill for FLAT_VECTOR and TECH_EXPLAINER
-        if (style == AnimationStyle.FLAT_VECTOR || style == AnimationStyle.TECH_EXPLAINER) {
+        // Background pill for FLAT_VECTOR, TECH_EXPLAINER, and CROSS_SECTION
+        if (style == AnimationStyle.FLAT_VECTOR ||
+            style == AnimationStyle.TECH_EXPLAINER ||
+            style == AnimationStyle.CROSS_SECTION
+        ) {
             val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = if (style == AnimationStyle.TECH_EXPLAINER) 0xEB0B101C.toInt() else 0xE6101524.toInt()
+                color = when (style) {
+                    AnimationStyle.TECH_EXPLAINER -> 0xEB0B101C.toInt()
+                    AnimationStyle.CROSS_SECTION -> 0xEB0B1A2D.toInt()
+                    else -> 0xE6101524.toInt()
+                }
             }
             val padX = 40f * u
-            val padY = 26f * u
+            val padY = 24f * u
             val pillRect = RectF(
                 startX - padX,
-                captionCenterY - textSizePx - padY * 0.4f,
+                captionCenterY - textSizePx - padY * 0.35f,
                 startX + totalW + padX,
                 captionCenterY + padY
             )
             canvas.drawRoundRect(pillRect, 28f * u, 28f * u, pillPaint)
-            if (style == AnimationStyle.TECH_EXPLAINER) {
+            if (style == AnimationStyle.TECH_EXPLAINER || style == AnimationStyle.CROSS_SECTION) {
                 val pillBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = 0x5500E5FF
+                    color = if (style == AnimationStyle.CROSS_SECTION) 0x6622D3EE else 0x5500E5FF
                     setStyle(Paint.Style.STROKE)
                     strokeWidth = 3f * u
                 }
@@ -252,6 +268,29 @@ object WorldFxAndCaptionRenderer {
                         isKeyword -> 0xFFFFD166.toInt()
                         else -> 0xFFF8FAFC.toInt()
                     }
+                    canvas.drawText(wt.word, cursorX, captionCenterY, fillPaint)
+                }
+                AnimationStyle.CROSS_SECTION -> {
+                    fillPaint.color = when {
+                        isActive -> 0xFF22D3EE.toInt()
+                        isKeyword -> 0xFFFFE066.toInt()
+                        else -> 0xFFF8FAFC.toInt()
+                    }
+                    canvas.drawText(wt.word, cursorX, captionCenterY, fillPaint)
+                }
+                AnimationStyle.VIRAL_2D_EXPLAINER -> {
+                    val dropPaint = Paint(strokePaint).apply {
+                        color = 0x88000000.toInt()
+                        strokeWidth = 11f * u
+                    }
+                    canvas.drawText(wt.word, cursorX + 3f * u, captionCenterY + 5f * u, dropPaint)
+                    strokePaint.color = Color.BLACK
+                    strokePaint.strokeWidth = 10f * u
+                    fillPaint.color = when {
+                        isActive || isKeyword -> 0xFFFFD600.toInt()
+                        else -> Color.WHITE
+                    }
+                    canvas.drawText(wt.word, cursorX, captionCenterY, strokePaint)
                     canvas.drawText(wt.word, cursorX, captionCenterY, fillPaint)
                 }
             }

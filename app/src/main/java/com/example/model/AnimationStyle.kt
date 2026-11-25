@@ -64,6 +64,24 @@ enum class AnimationStyle(
         backdropPromptSuffix = "clean dark tech infographic vector stage, subtle geometric grid, glowing cyan and emerald depth accents, no text, no people, empty stage, centered composition",
         usesNetworkArt = true,
         captionStyleLabel = "Kinetic spring pop + keyword glow"
+    ),
+    CROSS_SECTION(
+        displayName = "2D Cutaway & Engineering Diagram",
+        badge = "CUTAWAY 2D",
+        subtitle = "Kurzgesagt soil/house layers, pipes, fans & PathMeasure energy flow",
+        accentHex = 0xFF22D3EE,
+        backdropPromptSuffix = "flat 2D architectural cross-section cutaway diagram illustration, Kurzgesagt style clean geometric layers, soil strata, house interior pipes and airflow vents, no text, no people",
+        usesNetworkArt = false,
+        captionStyleLabel = "Cyan-glow engineering pill"
+    ),
+    VIRAL_2D_EXPLAINER(
+        displayName = "Viral 2D Science & Story Explainer",
+        badge = "2D VIRAL",
+        subtitle = "6px bold outlines, cartoon reactions, visual metaphors & yellow captions",
+        accentHex = 0xFFFFD600,
+        backdropPromptSuffix = "vibrant clean 2D animated science story explainer backdrop, crisp geometric shapes, bright studio lighting, no text, no people, empty stage, centered composition",
+        usesNetworkArt = false,
+        captionStyleLabel = "Thick black-outlined yellow/white captions"
     );
 
     val accentColor: Color

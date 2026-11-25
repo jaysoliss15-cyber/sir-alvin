@@ -83,9 +83,9 @@ object ProceduralBackdropGenerator {
         }
         canvas.drawRect(0f, 0f, w, h, bgPaint)
 
-        // Subtle whiteboard grid lines
+        // Subtle graph-paper rules
         val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0x168B95A5
+            color = 0x148B95A5
             strokeWidth = (w * 0.002f).coerceAtLeast(1f)
         }
         val step = w * 0.08f
@@ -110,17 +110,15 @@ object ProceduralBackdropGenerator {
             canvas.drawCircle(sx, sy, r, speckPaint)
         }
 
-        // Subtle marker tray / floor horizon line
         val floorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = 0xFF2B2E3A.toInt()
             strokeWidth = (w * 0.0055f).coerceAtLeast(2f)
-            style = Paint.Style.STROKE
+            setStyle(Paint.Style.STROKE)
             strokeCap = Paint.Cap.ROUND
         }
         val floorY = h * 0.72f
         canvas.drawLine(w * 0.08f, floorY, w * 0.92f, floorY, floorPaint)
 
-        // Soft paper edge vignette
         val vigPaint = Paint().apply {
             shader = RadialGradient(
                 w * 0.5f, h * 0.48f, h * 0.65f,
@@ -142,214 +140,252 @@ object ProceduralBackdropGenerator {
     ) {
         val w = width.toFloat()
         val h = height.toFloat()
+        val u = w / 1080f
         val rng = Random(seed)
 
-        // 1. Atmospheric sky gradient
+        // 1. Soft atmospheric sky gradient (golden dusk / starlight / warm studio sky / engineering cutaway)
         val skyColors = when (style) {
-            AnimationStyle.DARK_SUSPENSE -> intArrayOf(0xFF090B14.toInt(), 0xFF1A1026.toInt(), 0xFF2C1420.toInt())
-            AnimationStyle.CHIBI_STORYTIME -> intArrayOf(0xFF2C2559.toInt(), 0xFF6B4E9B.toInt(), 0xFFFFAFBD.toInt())
+            AnimationStyle.DARK_SUSPENSE -> intArrayOf(0xFF0A0D18.toInt(), 0xFF1D1530.toInt(), 0xFF391D2C.toInt())
+            AnimationStyle.CHIBI_STORYTIME -> intArrayOf(0xFF372C6B.toInt(), 0xFF7B5EA7.toInt(), 0xFFFFC1CC.toInt())
+            AnimationStyle.TECH_EXPLAINER -> intArrayOf(0xFF0B1325.toInt(), 0xFF172C49.toInt(), 0xFF2B4D6F.toInt())
+            AnimationStyle.CROSS_SECTION -> intArrayOf(0xFF0B1C36.toInt(), 0xFF15365C.toInt(), 0xFF285F82.toInt())
+            AnimationStyle.VIRAL_2D_EXPLAINER -> intArrayOf(0xFF1E90FF.toInt(), 0xFF60C6FF.toInt(), 0xFFDFF6FF.toInt())
             AnimationStyle.FLAT_VECTOR -> when (biome) {
-                SceneBiome.SPOOKY_NIGHT -> intArrayOf(0xFF10182E.toInt(), 0xFF24345C.toInt(), 0xFF3E4E7A.toInt())
-                SceneBiome.OFFICE_WEALTH -> intArrayOf(0xFF163A5F.toInt(), 0xFF256D85.toInt(), 0xFF8FE3CF.toInt())
-                else -> intArrayOf(0xFF1D4E89.toInt(), 0xFF3FA7D6.toInt(), 0xFFFDE49E.toInt())
+                SceneBiome.SPOOKY_NIGHT -> intArrayOf(0xFF101930.toInt(), 0xFF243860.toInt(), 0xFF475C88.toInt())
+                SceneBiome.OFFICE_WEALTH -> intArrayOf(0xFF163A5F.toInt(), 0xFF2B6E8C.toInt(), 0xFFF3C68F.toInt())
+                else -> intArrayOf(0xFF1D4E89.toInt(), 0xFF4BA3D8.toInt(), 0xFFFCE2A6.toInt())
             }
-            AnimationStyle.PAPER_DIORAMA -> when (biome) {
-                SceneBiome.SPOOKY_NIGHT -> intArrayOf(0xFF0E1324.toInt(), 0xFF1E2749.toInt(), 0xFF3D3456.toInt())
-                SceneBiome.OFFICE_WEALTH -> intArrayOf(0xFF1B2B44.toInt(), 0xFF3B5978.toInt(), 0xFFF4C07A.toInt())
-                else -> intArrayOf(0xFF1D4C7A.toInt(), 0xFF569CD6.toInt(), 0xFFFFDCA4.toInt())
+            else -> when (biome) {
+                SceneBiome.SPOOKY_NIGHT -> intArrayOf(0xFF0D1428.toInt(), 0xFF202B4D.toInt(), 0xFF4A3D61.toInt())
+                SceneBiome.OFFICE_WEALTH -> intArrayOf(0xFF1E3252.toInt(), 0xFF456990.toInt(), 0xFFF7C98A.toInt())
+                else -> intArrayOf(0xFF225587.toInt(), 0xFF62A8DC.toInt(), 0xFFFFE1AB.toInt())
             }
-            AnimationStyle.STICKMAN_WHITEBOARD -> intArrayOf(0xFFFAF6EE.toInt(), 0xFFF3ECE0.toInt(), 0xFFEDE4D4.toInt())
-            AnimationStyle.TECH_EXPLAINER -> intArrayOf(0xFF070B14.toInt(), 0xFF0E1729.toInt(), 0xFF12263F.toInt())
         }
 
         val skyPaint = Paint().apply {
             shader = LinearGradient(
-                0f, 0f, 0f, h * 0.72f,
+                0f, 0f, 0f, h * 0.68f,
                 skyColors,
-                floatArrayOf(0f, 0.55f, 1f),
+                floatArrayOf(0f, 0.54f, 1f),
                 Shader.TileMode.CLAMP
             )
         }
         canvas.drawRect(0f, 0f, w, h, skyPaint)
 
-        if (style == AnimationStyle.TECH_EXPLAINER) {
-            val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = 0x1A00E5FF
-                strokeWidth = (w * 0.002f).coerceAtLeast(1f)
-            }
-            val gridStep = w * 0.09f
-            var gx = gridStep
-            while (gx < w) {
-                canvas.drawLine(gx, 0f, gx, h * 0.67f, gridPaint)
-                gx += gridStep
-            }
-            var gy = gridStep
-            while (gy < h * 0.67f) {
-                canvas.drawLine(0f, gy, w, gy, gridPaint)
-                gy += gridStep
-            }
+        // 2. Warm Sun / Moon Glow with soft radial bloom
+        val orbX = w * (0.26f + rng.nextFloat() * 0.48f)
+        val orbY = h * 0.19f
+        val orbRadius = w * 0.11f
+        val isNight = biome == SceneBiome.SPOOKY_NIGHT || style == AnimationStyle.DARK_SUSPENSE
+        val orbColor = when {
+            style == AnimationStyle.DARK_SUSPENSE -> 0xFFF26A63.toInt()
+            style == AnimationStyle.CHIBI_STORYTIME -> 0xFFFFECF2.toInt()
+            style == AnimationStyle.TECH_EXPLAINER -> 0xFFFFE6A7.toInt()
+            isNight -> 0xFFE8EEF5.toInt()
+            else -> 0xFFFFE396.toInt()
         }
-
-        // 2. Celestial body (sun / moon / anime glow)
-        val orbX = w * (0.28f + rng.nextFloat() * 0.44f)
-        val orbY = h * 0.20f
-        val orbRadius = w * 0.14f
-        val orbColor = when (style) {
-            AnimationStyle.DARK_SUSPENSE -> 0xFFE63946.toInt()
-            AnimationStyle.CHIBI_STORYTIME -> 0xFFFFE5EC.toInt()
-            AnimationStyle.TECH_EXPLAINER -> 0xFF00E5FF.toInt()
-            else -> if (biome == SceneBiome.SPOOKY_NIGHT) 0xFFE2E8F0.toInt() else 0xFFFFE082.toInt()
-        }
-        val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        val outerBloom = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = RadialGradient(
-                orbX, orbY, orbRadius * 2.5f,
-                intArrayOf((orbColor and 0x00FFFFFF) or 0x66000000, 0x00000000),
-                floatArrayOf(0.2f, 1f),
+                orbX, orbY, orbRadius * 4.0f,
+                intArrayOf(
+                    (orbColor and 0x00FFFFFF) or 0x6E000000,
+                    (orbColor and 0x00FFFFFF) or 0x24000000,
+                    0x00000000
+                ),
+                floatArrayOf(0.15f, 0.55f, 1f),
                 Shader.TileMode.CLAMP
             )
         }
-        canvas.drawCircle(orbX, orbY, orbRadius * 2.5f, glowPaint)
-        val orbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = orbColor }
+        canvas.drawCircle(orbX, orbY, orbRadius * 4.0f, outerBloom)
+        val orbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = RadialGradient(
+                orbX - orbRadius * 0.2f, orbY - orbRadius * 0.2f, orbRadius * 1.2f,
+                intArrayOf(Color.WHITE, orbColor),
+                null,
+                Shader.TileMode.CLAMP
+            )
+        }
         canvas.drawCircle(orbX, orbY, orbRadius, orbPaint)
 
-        // Stars / clouds
-        if (biome == SceneBiome.SPOOKY_NIGHT || style == AnimationStyle.DARK_SUSPENSE || style == AnimationStyle.CHIBI_STORYTIME) {
-            val starPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xAAFFFFFF.toInt() }
-            for (i in 0 until 28) {
+        // Subtle twilight stars on night/evening styles
+        if (isNight || style == AnimationStyle.CHIBI_STORYTIME || style == AnimationStyle.TECH_EXPLAINER) {
+            val starPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+            for (i in 0 until 32) {
                 val sx = rng.nextFloat() * w
-                val sy = rng.nextFloat() * h * 0.45f
-                val sr = (1.5f + rng.nextFloat() * 3f) * (w / 1080f)
+                val sy = rng.nextFloat() * h * 0.42f
+                val sr = (1.2f + rng.nextFloat() * 2.5f) * u
+                starPaint.color = Color.argb(110 + (i % 4) * 32, 255, 250, 235)
                 canvas.drawCircle(sx, sy, sr, starPaint)
             }
         }
 
-        // Stylized paper clouds
+        // 3. Sculpted layered wispy diorama clouds (smooth organic curved paths, NO flat circles)
         val cloudColor = when (style) {
-            AnimationStyle.DARK_SUSPENSE -> 0x332D1B36
-            AnimationStyle.CHIBI_STORYTIME -> 0xBBFFF0F6.toInt()
-            AnimationStyle.TECH_EXPLAINER -> 0x2200E5FF
-            else -> 0xCCFFFDF7.toInt()
+            AnimationStyle.DARK_SUSPENSE -> 0x44362445
+            AnimationStyle.CHIBI_STORYTIME -> 0xCCFFF2F7.toInt()
+            AnimationStyle.TECH_EXPLAINER -> 0x38A7C7E7
+            else -> 0xD8FFF9EC.toInt()
         }
-        drawPaperCloud(canvas, w * 0.18f, h * 0.14f, w * 0.22f, cloudColor, style == AnimationStyle.PAPER_DIORAMA)
-        drawPaperCloud(canvas, w * 0.76f, h * 0.24f, w * 0.25f, cloudColor, style == AnimationStyle.PAPER_DIORAMA)
+        val cloudShadow = when (style) {
+            AnimationStyle.DARK_SUSPENSE -> 0x33120D1A
+            AnimationStyle.TECH_EXPLAINER -> 0x26081222
+            else -> 0x2A7C6F64
+        }
+        drawSculptedCloud(canvas, w * 0.22f, h * 0.145f, w * 0.34f, h * 0.042f, cloudColor, cloudShadow, u)
+        drawSculptedCloud(canvas, w * 0.74f, h * 0.245f, w * 0.38f, h * 0.046f, cloudColor, cloudShadow, u)
 
-        // 3. Distant parallax hill layer (tilt-shift blurred on Paper Diorama)
+        // 4. Layered rolling hills with atmospheric depth haze & tilt-shift blur
         val farHillColor = when (style) {
-            AnimationStyle.DARK_SUSPENSE -> 0xFF151221.toInt()
-            AnimationStyle.CHIBI_STORYTIME -> 0xFF6247AA.toInt()
-            AnimationStyle.TECH_EXPLAINER -> 0xFF10253B.toInt()
-            else -> if (biome == SceneBiome.OFFICE_WEALTH) 0xFF2B4162.toInt() else 0xFF2D6A4F.toInt()
+            AnimationStyle.DARK_SUSPENSE -> 0xFF1A1629.toInt()
+            AnimationStyle.CHIBI_STORYTIME -> 0xFF6950A8.toInt()
+            AnimationStyle.TECH_EXPLAINER -> 0xFF203B56.toInt()
+            else -> if (biome == SceneBiome.OFFICE_WEALTH) 0xFF334E70.toInt() else 0xFF38765B.toInt()
         }
         drawHillLayer(
-            canvas, w, h,
-            baseY = h * 0.57f,
-            amp = h * 0.045f,
-            freq = 1.6f,
-            phase = rng.nextFloat() * 3f,
-            color = farHillColor,
-            paperShadow = style == AnimationStyle.PAPER_DIORAMA,
-            blurRadius = if (style == AnimationStyle.PAPER_DIORAMA) w * 0.012f else 0f
+            canvas = canvas, w = w, h = h,
+            baseY = h * 0.545f, amp = h * 0.042f, freq = 1.45f, phase = rng.nextFloat() * 3.1f,
+            topColor = farHillColor,
+            bottomColor = darkenColor(farHillColor, 0.82f),
+            paperShadow = true,
+            blurRadius = 14f * u
         )
 
-        // 4. Midground silhouettes (City / Barrio / Forest / Vault)
-        drawMidgroundSilhouettes(canvas, w, h, style, biome, rng)
-
-        // 5. Foreground 2.5D Isometric Stage / Ground Plane
-        val groundTopY = h * 0.67f
-        val groundColors = when (style) {
-            AnimationStyle.DARK_SUSPENSE -> intArrayOf(0xFF191B26.toInt(), 0xFF0A0B10.toInt())
-            AnimationStyle.CHIBI_STORYTIME -> intArrayOf(0xFF52B788.toInt(), 0xFF2D6A4F.toInt())
-            AnimationStyle.TECH_EXPLAINER -> intArrayOf(0xFF101929.toInt(), 0xFF070B12.toInt())
-            else -> when (biome) {
-                SceneBiome.URBAN_CITY -> intArrayOf(0xFF3A4154.toInt(), 0xFF202533.toInt())
-                SceneBiome.OFFICE_WEALTH -> intArrayOf(0xFF4E3B31.toInt(), 0xFF2A1E18.toInt())
-                else -> intArrayOf(0xFF52B788.toInt(), 0xFF1B4332.toInt())
-            }
+        // Atmospheric depth haze band between far and mid hills
+        val horizonHazeColor = when (style) {
+            AnimationStyle.DARK_SUSPENSE -> 0x335B2B3F
+            AnimationStyle.TECH_EXPLAINER -> 0x308FB8DE
+            else -> 0x38FFE7BA
         }
-        if (style == AnimationStyle.PAPER_DIORAMA) {
-            val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = 0x55000000
-                maskFilter = BlurMaskFilter((w * 0.018f).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
-            }
-            canvas.drawRect(0f, groundTopY - h * 0.01f, w, h, shadowPaint)
-        }
-
-        val groundPaint = Paint().apply {
+        val hazePaint = Paint().apply {
             shader = LinearGradient(
-                0f, groundTopY, 0f, h,
-                groundColors[0], groundColors[1],
+                0f, h * 0.48f, 0f, h * 0.65f,
+                intArrayOf(0x00000000, horizonHazeColor, 0x00000000),
+                floatArrayOf(0f, 0.52f, 1f),
                 Shader.TileMode.CLAMP
             )
         }
+        canvas.drawRect(0f, h * 0.48f, w, h * 0.65f, hazePaint)
+
+        val midHillColor = when (style) {
+            AnimationStyle.DARK_SUSPENSE -> 0xFF131120.toInt()
+            AnimationStyle.CHIBI_STORYTIME -> 0xFF4F3889.toInt()
+            AnimationStyle.TECH_EXPLAINER -> 0xFF162C42.toInt()
+            else -> if (biome == SceneBiome.OFFICE_WEALTH) 0xFF263B57.toInt() else 0xFF2B6047.toInt()
+        }
+        drawHillLayer(
+            canvas = canvas, w = w, h = h,
+            baseY = h * 0.605f, amp = h * 0.032f, freq = 2.05f, phase = rng.nextFloat() * 4.2f + 1.2f,
+            topColor = midHillColor,
+            bottomColor = darkenColor(midHillColor, 0.78f),
+            paperShadow = true,
+            blurRadius = if (style == AnimationStyle.PAPER_DIORAMA) 6f * u else 0f
+        )
+
+        // 5. Detailed Midground Diorama Architecture & Trees (with lit windows, timber trim & cast shadows)
+        drawMidgroundDioramaStructures(canvas, w, h, u, style, biome, rng)
+
+        // 6. Foreground 2.5D Textured Stage (Cobblestone Pavers OR Layered Meadow Grass — zero wireframe grids)
+        val groundTopY = h * 0.675f
+        val groundColors = when (style) {
+            AnimationStyle.DARK_SUSPENSE -> intArrayOf(0xFF1E2230.toInt(), 0xFF0C0E14.toInt())
+            AnimationStyle.CHIBI_STORYTIME -> intArrayOf(0xFF59B886.toInt(), 0xFF2A6247.toInt())
+            AnimationStyle.TECH_EXPLAINER -> intArrayOf(0xFF25374B.toInt(), 0xFF111A26.toInt())
+            else -> when (biome) {
+                SceneBiome.URBAN_CITY -> intArrayOf(0xFF474E63.toInt(), 0xFF232836.toInt())
+                SceneBiome.OFFICE_WEALTH -> intArrayOf(0xFF594438.toInt(), 0xFF2D2019.toInt())
+                else -> intArrayOf(0xFF56B47F.toInt(), 0xFF23533C.toInt())
+            }
+        }
+
+        // Diorama shelf drop-shadow behind foreground stage lip
+        val lipShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x5A000000
+            maskFilter = BlurMaskFilter((20f * u).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.drawRect(0f, groundTopY - 10f * u, w, h, lipShadow)
+
+        val groundPaint = Paint().apply {
+            shader = LinearGradient(0f, groundTopY, 0f, h, groundColors[0], groundColors[1], Shader.TileMode.CLAMP)
+        }
         canvas.drawRect(0f, groundTopY, w, h, groundPaint)
 
-        // Isometric perspective floor grid / path stripes
-        val isoPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0x22FFFFFF
-            strokeWidth = (w * 0.003f).coerceAtLeast(1f)
-        }
-        val vanishX = w * 0.5f
-        val vanishY = groundTopY - h * 0.08f
-        for (i in -6..6) {
-            val bottomX = vanishX + i * (w * 0.26f)
-            canvas.drawLine(vanishX, vanishY, bottomX, h, isoPaint)
-        }
-        // Horizontal perspective lines
-        for (row in 1..5) {
-            val frac = (row / 5f)
-            val yPos = groundTopY + (h - groundTopY) * (frac * frac)
-            canvas.drawLine(0f, yPos, w, yPos, isoPaint)
+        when {
+            biome == SceneBiome.URBAN_CITY || biome == SceneBiome.OFFICE_WEALTH || biome == SceneBiome.SPOOKY_NIGHT -> {
+                drawCobblestoneForeground(canvas, w, h, u, groundTopY, style, rng)
+            }
+            else -> {
+                drawMeadowAndStonePathForeground(canvas, w, h, u, groundTopY, style, rng)
+            }
         }
 
-        // Paper-cut rim highlight on stage ledge
+        // Soft warm rim highlight along stage horizon ledge
         val ledgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = when (style) {
-                AnimationStyle.DARK_SUSPENSE -> 0x44EF4444
-                AnimationStyle.TECH_EXPLAINER -> 0x6600E5FF
-                else -> 0x55FFFFFF
-            }
-            strokeWidth = (w * 0.005f).coerceAtLeast(2f)
+            color = if (style == AnimationStyle.DARK_SUSPENSE) 0x44F26A63 else 0x4DFFF8E7
+            strokeWidth = (4.5f * u).coerceAtLeast(2f)
         }
         canvas.drawLine(0f, groundTopY, w, groundTopY, ledgePaint)
 
-        // 6. Tilt-shift / soft vignette depth bands
+        // 7. Subtle Tilt-Shift Depth Haze & Warm Atmospheric Vignette
         val topBlurBand = Paint().apply {
             shader = LinearGradient(
-                0f, 0f, 0f, h * 0.18f,
-                intArrayOf(0x44000000, 0x00000000),
+                0f, 0f, 0f, h * 0.16f,
+                intArrayOf(0x48000000, 0x00000000),
                 null, Shader.TileMode.CLAMP
             )
         }
-        canvas.drawRect(0f, 0f, w, h * 0.18f, topBlurBand)
+        canvas.drawRect(0f, 0f, w, h * 0.16f, topBlurBand)
 
-        val bottomDepthBand = Paint().apply {
+        val bottomTiltShift = Paint().apply {
             shader = LinearGradient(
-                0f, h * 0.78f, 0f, h,
-                intArrayOf(0x00000000, 0x77000000),
+                0f, h * 0.80f, 0f, h,
+                intArrayOf(0x00000000, 0x8206080E.toInt()),
                 null, Shader.TileMode.CLAMP
             )
         }
-        canvas.drawRect(0f, h * 0.78f, w, h, bottomDepthBand)
+        canvas.drawRect(0f, h * 0.80f, w, h, bottomTiltShift)
     }
 
-    private fun drawPaperCloud(
+    private fun drawSculptedCloud(
         canvas: Canvas,
         cx: Float,
         cy: Float,
         width: Float,
-        color: Int,
-        withShadow: Boolean
+        height: Float,
+        fillColor: Int,
+        shadowColor: Int,
+        u: Float
     ) {
-        if (withShadow) {
-            val sp = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = 0x2A000000 }
-            canvas.drawCircle(cx - width * 0.2f + 8f, cy + 10f, width * 0.22f, sp)
-            canvas.drawCircle(cx + width * 0.12f + 8f, cy - width * 0.05f + 10f, width * 0.27f, sp)
-            canvas.drawCircle(cx + width * 0.35f + 8f, cy + 10f, width * 0.19f, sp)
+        fun cloudPath(ox: Float, oy: Float): Path {
+            val l = cx - width * 0.5f + ox
+            val r = cx + width * 0.5f + ox
+            val base = cy + height * 0.45f + oy
+            return Path().apply {
+                moveTo(l + width * 0.08f, base)
+                cubicTo(
+                    l - width * 0.02f, base - height * 0.75f,
+                    l + width * 0.22f, base - height * 1.15f,
+                    l + width * 0.34f, base - height * 0.85f
+                )
+                cubicTo(
+                    l + width * 0.42f, base - height * 1.55f,
+                    l + width * 0.66f, base - height * 1.50f,
+                    l + width * 0.72f, base - height * 0.82f
+                )
+                cubicTo(
+                    l + width * 0.84f, base - height * 1.05f,
+                    r + width * 0.02f, base - height * 0.60f,
+                    r - width * 0.06f, base
+                )
+                close()
+            }
         }
-        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
-        canvas.drawCircle(cx - width * 0.2f, cy, width * 0.22f, p)
-        canvas.drawCircle(cx + width * 0.12f, cy - width * 0.05f, width * 0.27f, p)
-        canvas.drawCircle(cx + width * 0.35f, cy, width * 0.19f, p)
+        val sp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = shadowColor
+            maskFilter = BlurMaskFilter((8f * u).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.drawPath(cloudPath(4f * u, 9f * u), sp)
+        val fp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = fillColor }
+        canvas.drawPath(cloudPath(0f, 0f), fp)
     }
 
     private fun drawHillLayer(
@@ -360,18 +396,19 @@ object ProceduralBackdropGenerator {
         amp: Float,
         freq: Float,
         phase: Float,
-        color: Int,
+        topColor: Int,
+        bottomColor: Int,
         paperShadow: Boolean,
         blurRadius: Float
     ) {
         val path = Path()
         path.moveTo(0f, h)
-        val steps = 28
+        val steps = 36
         for (i in 0..steps) {
             val t = i / steps.toFloat()
             val x = t * w
             val y = baseY - sin(t * PI.toFloat() * freq + phase) * amp -
-                cos(t * PI.toFloat() * freq * 0.5f) * (amp * 0.45f)
+                cos(t * PI.toFloat() * freq * 0.55f + 0.4f) * (amp * 0.45f)
             path.lineTo(x, y)
         }
         path.lineTo(w, h)
@@ -379,17 +416,17 @@ object ProceduralBackdropGenerator {
 
         if (paperShadow) {
             val sp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.color = 0x33000000
+                color = 0x3A000000
                 maskFilter = BlurMaskFilter((w * 0.012f).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
             }
             canvas.save()
-            canvas.translate(0f, -h * 0.006f)
+            canvas.translate(0f, -h * 0.005f)
             canvas.drawPath(path, sp)
             canvas.restore()
         }
 
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
+            shader = LinearGradient(0f, baseY - amp * 1.5f, 0f, h * 0.72f, topColor, bottomColor, Shader.TileMode.CLAMP)
             if (blurRadius > 0f) {
                 maskFilter = BlurMaskFilter(blurRadius, BlurMaskFilter.Blur.NORMAL)
             }
@@ -397,139 +434,351 @@ object ProceduralBackdropGenerator {
         canvas.drawPath(path, p)
     }
 
-    private fun drawMidgroundSilhouettes(
+    private fun drawMidgroundDioramaStructures(
         canvas: Canvas,
         w: Float,
         h: Float,
+        u: Float,
         style: AnimationStyle,
         biome: SceneBiome,
         rng: Random
     ) {
-        val horizonY = h * 0.67f
-        val silhouetteColor = when (style) {
-            AnimationStyle.DARK_SUSPENSE -> 0xFF0D0F18.toInt()
-            AnimationStyle.CHIBI_STORYTIME -> 0xFF473170.toInt()
-            AnimationStyle.TECH_EXPLAINER -> 0xFF0D1D31.toInt()
-            else -> 0xFF213148.toInt()
+        val horizonY = h * 0.675f
+        val wallColor = when (style) {
+            AnimationStyle.DARK_SUSPENSE -> 0xFF191B29.toInt()
+            AnimationStyle.CHIBI_STORYTIME -> 0xFF583D84.toInt()
+            AnimationStyle.TECH_EXPLAINER -> 0xFF1A2D42.toInt()
+            else -> if (biome == SceneBiome.BARRIO_VILLAGE || biome == SceneBiome.NATURE_PATH) 0xFF6B4834.toInt() else 0xFF283952.toInt()
+        }
+        val sideWallColor = darkenColor(wallColor, 0.72f)
+        val roofColor = when (style) {
+            AnimationStyle.DARK_SUSPENSE -> 0xFF2B1C2E.toInt()
+            AnimationStyle.CHIBI_STORYTIME -> 0xFF9E4B79.toInt()
+            else -> 0xFF8C432B.toInt()
         }
         val litWindowColor = when (style) {
-            AnimationStyle.DARK_SUSPENSE -> 0xFFFF595E.toInt()
-            AnimationStyle.CHIBI_STORYTIME -> 0xFFFFE66D.toInt()
-            AnimationStyle.TECH_EXPLAINER -> 0xFF00E5FF.toInt()
-            else -> 0xFFFFD166.toInt()
+            AnimationStyle.DARK_SUSPENSE -> 0xFFFF6B5B.toInt()
+            AnimationStyle.CHIBI_STORYTIME -> 0xFFFFE680.toInt()
+            AnimationStyle.TECH_EXPLAINER -> 0xFFFFD875.toInt()
+            else -> 0xFFFFD573.toInt()
         }
-
-        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = silhouetteColor }
-        val winPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = litWindowColor }
 
         when (biome) {
             SceneBiome.URBAN_CITY, SceneBiome.OFFICE_WEALTH -> {
-                val count = 7
-                val bw = w / count
+                val count = 6
+                val slotW = w / count
                 for (i in 0 until count) {
-                    val left = i * bw + bw * 0.08f
-                    val right = (i + 1) * bw - bw * 0.06f
+                    val left = i * slotW + slotW * 0.06f
+                    val right = (i + 1) * slotW - slotW * 0.08f
                     val bHeight = h * (0.14f + rng.nextFloat() * 0.16f)
                     val top = horizonY - bHeight
-                    canvas.drawRoundRect(RectF(left, top, right, horizonY), 10f, 10f, fillPaint)
-                    // Lit windows
-                    var wy = top + h * 0.025f
-                    while (wy < horizonY - h * 0.03f) {
-                        var wx = left + bw * 0.18f
-                        while (wx < right - bw * 0.24f) {
-                            if (rng.nextFloat() > 0.35f) {
-                                canvas.drawRect(wx, wy, wx + bw * 0.16f, wy + h * 0.015f, winPaint)
+                    val sideW = (right - left) * 0.16f
+
+                    // Cast ground drop shadow behind building
+                    val dropShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = 0x3A000000
+                        maskFilter = BlurMaskFilter((10f * u).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+                    }
+                    canvas.drawRect(left - 6f * u, top + 6f * u, right + sideW + 6f * u, horizonY, dropShadow)
+
+                    // Front facade
+                    canvas.drawRoundRect(
+                        RectF(left, top, right, horizonY), 8f * u, 8f * u,
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = wallColor }
+                    )
+                    // 2.5D shaded right side wall
+                    canvas.drawRect(
+                        right - 2f * u, top + 6f * u, right + sideW, horizonY,
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = sideWallColor }
+                    )
+                    // Roof cornice ledge
+                    canvas.drawRoundRect(
+                        RectF(left - 4f * u, top - 8f * u, right + sideW + 2f * u, top + 6f * u),
+                        4f * u, 4f * u,
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = lightenColor(wallColor, 1.18f) }
+                    )
+
+                    // Recessed glowing multi-pane windows
+                    val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = darkenColor(wallColor, 0.55f) }
+                    val panePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = litWindowColor }
+                    var wy = top + 24f * u
+                    while (wy < horizonY - 40f * u) {
+                        var wx = left + (right - left) * 0.16f
+                        while (wx < right - (right - left) * 0.24f) {
+                            val ww = (right - left) * 0.18f
+                            val wh = 26f * u
+                            canvas.drawRoundRect(RectF(wx - 2f * u, wy - 2f * u, wx + ww + 2f * u, wy + wh + 2f * u), 3f * u, 3f * u, framePaint)
+                            if (rng.nextFloat() > 0.30f) {
+                                canvas.drawRoundRect(RectF(wx, wy, wx + ww, wy + wh), 2f * u, 2f * u, panePaint)
                             }
-                            wx += bw * 0.28f
+                            wx += (right - left) * 0.28f
                         }
-                        wy += h * 0.032f
+                        wy += 48f * u
                     }
                 }
             }
-            SceneBiome.BARRIO_VILLAGE -> {
-                // Stylized Bahay Kubo huts & coconut trees
-                drawBahayKubo(canvas, w * 0.22f, horizonY, w * 0.28f, silhouetteColor, litWindowColor)
-                drawBahayKubo(canvas, w * 0.78f, horizonY, w * 0.24f, silhouetteColor, litWindowColor)
-                drawPalmTree(canvas, w * 0.12f, horizonY, h * 0.22f, silhouetteColor)
-                drawPalmTree(canvas, w * 0.88f, horizonY, h * 0.20f, silhouetteColor)
+            SceneBiome.BARRIO_VILLAGE, SceneBiome.NATURE_PATH -> {
+                drawLayeredTree(canvas, w * 0.09f, horizonY, h * 0.20f, u, style)
+                drawLayeredTree(canvas, w * 0.91f, horizonY, h * 0.22f, u, style)
+                drawDetailedWoodenHouse(
+                    canvas = canvas, cx = w * 0.23f, groundY = horizonY, size = w * 0.29f, u = u,
+                    wallColor = wallColor, sideColor = sideWallColor, roofColor = roofColor, windowColor = litWindowColor
+                )
+                drawDetailedWoodenHouse(
+                    canvas = canvas, cx = w * 0.77f, groundY = horizonY, size = w * 0.25f, u = u,
+                    wallColor = lightenColor(wallColor, 1.08f), sideColor = sideWallColor, roofColor = roofColor, windowColor = litWindowColor
+                )
+                drawLayeredTree(canvas, w * 0.43f, horizonY, h * 0.14f, u, style)
             }
-            SceneBiome.SPOOKY_NIGHT, SceneBiome.NATURE_PATH -> {
-                // Layered stylized pines / acacia silhouettes
-                for (i in 0 until 6) {
-                    val tx = w * (0.08f + i * 0.17f)
-                    val th = h * (0.14f + (i % 3) * 0.05f)
-                    val treePath = Path().apply {
-                        moveTo(tx, horizonY - th)
-                        lineTo(tx - w * 0.11f, horizonY)
-                        lineTo(tx + w * 0.11f, horizonY)
-                        close()
-                    }
-                    canvas.drawPath(treePath, fillPaint)
-                }
+            SceneBiome.SPOOKY_NIGHT -> {
+                drawLayeredTree(canvas, w * 0.14f, horizonY, h * 0.23f, u, style)
+                drawDetailedWoodenHouse(
+                    canvas = canvas, cx = w * 0.76f, groundY = horizonY, size = w * 0.28f, u = u,
+                    wallColor = wallColor, sideColor = sideWallColor, roofColor = roofColor, windowColor = litWindowColor
+                )
+                drawLayeredTree(canvas, w * 0.48f, horizonY, h * 0.17f, u, style)
+                drawLayeredTree(canvas, w * 0.92f, horizonY, h * 0.21f, u, style)
             }
         }
     }
 
-    private fun drawBahayKubo(
+    private fun drawDetailedWoodenHouse(
         canvas: Canvas,
         cx: Float,
         groundY: Float,
         size: Float,
-        bodyColor: Int,
+        u: Float,
+        wallColor: Int,
+        sideColor: Int,
+        roofColor: Int,
         windowColor: Int
     ) {
-        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = bodyColor }
-        // Stilts
-        canvas.drawRect(cx - size * 0.35f, groundY - size * 0.22f, cx - size * 0.28f, groundY, p)
-        canvas.drawRect(cx + size * 0.28f, groundY - size * 0.22f, cx + size * 0.35f, groundY, p)
-        // House body
-        canvas.drawRect(cx - size * 0.38f, groundY - size * 0.62f, cx + size * 0.38f, groundY - size * 0.20f, p)
-        // Steep nipa roof
-        val roof = Path().apply {
-            moveTo(cx, groundY - size * 1.05f)
-            lineTo(cx - size * 0.52f, groundY - size * 0.58f)
-            lineTo(cx + size * 0.52f, groundY - size * 0.58f)
+        val houseW = size * 0.76f
+        val bodyTop = groundY - size * 0.58f
+        val stiltTop = groundY - size * 0.14f
+        val left = cx - houseW * 0.5f
+        val right = cx + houseW * 0.38f
+        val sideRight = cx + houseW * 0.56f
+
+        // Ground shadow under house
+        val gShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x4D000000
+            maskFilter = BlurMaskFilter((12f * u).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.drawOval(RectF(left - 18f * u, groundY - 12f * u, sideRight + 18f * u, groundY + 14f * u), gShadow)
+
+        // Wooden stilts / stone foundation posts
+        val postPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = darkenColor(wallColor, 0.55f) }
+        for (px in listOf(left + 12f * u, cx - 6f * u, right - 12f * u, sideRight - 14f * u)) {
+            canvas.drawRect(px, stiltTop - 4f * u, px + 11f * u, groundY, postPaint)
+        }
+
+        // Front timber wall + 2.5D shaded side wall
+        canvas.drawRect(left, bodyTop, right, stiltTop, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = wallColor })
+        canvas.drawRect(right, bodyTop, sideRight, stiltTop, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = sideColor })
+
+        // Vertical timber plank seams
+        val seamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x331B110B
+            strokeWidth = (2.5f * u).coerceAtLeast(1f)
+        }
+        val planks = 6
+        val pw = (right - left) / planks
+        for (i in 1 until planks) {
+            val sx = left + i * pw
+            canvas.drawLine(sx, bodyTop, sx, stiltTop, seamPaint)
+        }
+
+        // Under-eaves cast shadow
+        canvas.drawRect(left, bodyTop, sideRight, bodyTop + 14f * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x4D000000 })
+
+        // Warm glowing cottage window with crossbars & sill
+        val winW = houseW * 0.28f
+        val winH = size * 0.20f
+        val winL = left + houseW * 0.14f
+        val winT = bodyTop + size * 0.12f
+        val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = (windowColor and 0x00FFFFFF) or 0x55000000
+            maskFilter = BlurMaskFilter((14f * u).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.drawRoundRect(RectF(winL - 8f * u, winT - 8f * u, winL + winW + 8f * u, winT + winH + 8f * u), 8f * u, 8f * u, glow)
+        canvas.drawRect(winL, winT, winL + winW, winT + winH, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = windowColor })
+        val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = darkenColor(wallColor, 0.45f)
+            setStyle(Paint.Style.STROKE)
+            strokeWidth = (4f * u).coerceAtLeast(1.5f)
+        }
+        canvas.drawRect(winL, winT, winL + winW, winT + winH, framePaint)
+        canvas.drawLine(winL + winW * 0.5f, winT, winL + winW * 0.5f, winT + winH, framePaint)
+        canvas.drawLine(winL, winT + winH * 0.5f, winL + winW, winT + winH * 0.5f, framePaint)
+
+        // Wooden door
+        val doorL = right - houseW * 0.28f
+        val doorR = right - houseW * 0.08f
+        val doorT = bodyTop + size * 0.16f
+        canvas.drawRect(doorL, doorT, doorR, stiltTop, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = darkenColor(wallColor, 0.58f) })
+        canvas.drawCircle(doorR - 6f * u, (doorT + stiltTop) * 0.52f, 3f * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFD166.toInt() })
+
+        // Pitched overlapping nipa/shingle roof
+        val peakY = bodyTop - size * 0.42f
+        val peakX = (left + right) * 0.5f
+        val frontRoof = Path().apply {
+            moveTo(peakX, peakY)
+            lineTo(left - 18f * u, bodyTop + 10f * u)
+            lineTo(right + 12f * u, bodyTop + 10f * u)
             close()
         }
-        canvas.drawPath(roof, p)
-        // Warm window
-        val wp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = windowColor }
-        canvas.drawRect(cx - size * 0.15f, groundY - size * 0.48f, cx + size * 0.15f, groundY - size * 0.30f, wp)
+        val sideRoof = Path().apply {
+            moveTo(peakX, peakY)
+            lineTo(right + 12f * u, bodyTop + 10f * u)
+            lineTo(sideRight + 16f * u, bodyTop + 6f * u)
+            lineTo(peakX + (sideRight - right), peakY + 4f * u)
+            close()
+        }
+        canvas.drawPath(sideRoof, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = darkenColor(roofColor, 0.75f) })
+        canvas.drawPath(frontRoof, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = roofColor })
     }
 
-    private fun drawPalmTree(
+    private fun drawLayeredTree(
         canvas: Canvas,
         baseX: Float,
         groundY: Float,
         height: Float,
-        color: Int
+        u: Float,
+        style: AnimationStyle
     ) {
-        val trunkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
-            strokeWidth = height * 0.055f
-            style = Paint.Style.STROKE
-            strokeCap = Paint.Cap.ROUND
+        val trunkColor = if (style == AnimationStyle.DARK_SUSPENSE) 0xFF1D1821.toInt() else 0xFF4E342E.toInt()
+        val leafDark = when (style) {
+            AnimationStyle.DARK_SUSPENSE -> 0xFF131D29.toInt()
+            AnimationStyle.CHIBI_STORYTIME -> 0xFF3A7D6B.toInt()
+            else -> 0xFF1E563B.toInt()
         }
-        val topX = baseX + height * 0.10f
-        val topY = groundY - height
-        val trunk = Path().apply {
-            moveTo(baseX, groundY)
-            quadTo(baseX + height * 0.14f, groundY - height * 0.5f, topX, topY)
-        }
-        canvas.drawPath(trunk, trunkPaint)
+        val leafLight = lightenColor(leafDark, 1.32f)
 
-        val leafPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
-        for (a in listOf(-150, -110, -45, 10, 45)) {
-            val rad = Math.toRadians(a.toDouble())
-            val lx = topX + cos(rad).toFloat() * height * 0.42f
-            val ly = topY + sin(rad).toFloat() * height * 0.28f + height * 0.08f
-            val frond = Path().apply {
-                moveTo(topX, topY)
-                quadTo((topX + lx) * 0.5f, topY - height * 0.12f, lx, ly)
-                quadTo((topX + lx) * 0.5f, topY + height * 0.03f, topX, topY)
-                close()
-            }
-            canvas.drawPath(frond, leafPaint)
+        val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x44000000 }
+        canvas.drawOval(RectF(baseX - height * 0.25f, groundY - 8f * u, baseX + height * 0.25f, groundY + 10f * u), shadow)
+
+        val trunkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = trunkColor }
+        canvas.drawRoundRect(
+            RectF(baseX - height * 0.045f, groundY - height * 0.55f, baseX + height * 0.045f, groundY),
+            6f * u, 6f * u, trunkPaint
+        )
+
+        val crownCy = groundY - height * 0.65f
+        val darkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = leafDark }
+        val lightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = leafLight }
+        canvas.drawCircle(baseX - height * 0.14f, crownCy + height * 0.04f, height * 0.22f, darkPaint)
+        canvas.drawCircle(baseX + height * 0.14f, crownCy + height * 0.05f, height * 0.20f, darkPaint)
+        canvas.drawCircle(baseX, crownCy - height * 0.10f, height * 0.24f, darkPaint)
+        canvas.drawCircle(baseX - height * 0.04f, crownCy - height * 0.14f, height * 0.17f, lightPaint)
+    }
+
+    private fun drawCobblestoneForeground(
+        canvas: Canvas,
+        w: Float,
+        h: Float,
+        u: Float,
+        groundTopY: Float,
+        style: AnimationStyle,
+        rng: Random
+    ) {
+        val baseStone = if (style == AnimationStyle.DARK_SUSPENSE) 0xFF282D3E.toInt() else 0xFF565E73.toInt()
+        val stonePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val mortarPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x550B0D14
+            setStyle(Paint.Style.STROKE)
+            strokeWidth = (2.5f * u).coerceAtLeast(1f)
         }
+
+        val rows = 7
+        val totalH = h - groundTopY
+        for (r in 0 until rows) {
+            val t0 = (r.toFloat() / rows)
+            val t1 = ((r + 1).toFloat() / rows)
+            val y0 = groundTopY + totalH * (t0 * t0 * 0.85f + t0 * 0.15f)
+            val y1 = groundTopY + totalH * (t1 * t1 * 0.85f + t1 * 0.15f)
+            val stoneH = (y1 - y0).coerceAtLeast(10f * u)
+            val stoneW = (92f + r * 26f) * u
+            val offsetX = if (r % 2 == 0) 0f else stoneW * 0.5f
+            var sx = -stoneW + offsetX
+            while (sx < w + stoneW) {
+                val tone = 0.86f + rng.nextFloat() * 0.24f
+                stonePaint.color = scaleColorBrightness(baseStone, tone)
+                val rect = RectF(sx + 4f * u, y0 + 3f * u, sx + stoneW - 4f * u, y0 + stoneH - 3f * u)
+                val radius = (stoneH * 0.28f).coerceAtLeast(4f * u)
+                canvas.drawRoundRect(rect, radius, radius, stonePaint)
+                canvas.drawRoundRect(rect, radius, radius, mortarPaint)
+                sx += stoneW
+            }
+        }
+    }
+
+    private fun drawMeadowAndStonePathForeground(
+        canvas: Canvas,
+        w: Float,
+        h: Float,
+        u: Float,
+        groundTopY: Float,
+        style: AnimationStyle,
+        rng: Random
+    ) {
+        // Curved warm stepping-stone garden path down the center
+        val pathPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (style == AnimationStyle.TECH_EXPLAINER) 0x44334A66 else 0x55D4B483
+        }
+        val path = Path().apply {
+            moveTo(w * 0.43f, groundTopY)
+            quadTo(w * 0.52f, (groundTopY + h) * 0.5f, w * 0.34f, h)
+            lineTo(w * 0.68f, h)
+            quadTo(w * 0.58f, (groundTopY + h) * 0.5f, w * 0.57f, groundTopY)
+            close()
+        }
+        canvas.drawPath(path, pathPaint)
+
+        // Stepping stones along path
+        val stonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (style == AnimationStyle.TECH_EXPLAINER) 0xFF33475E.toInt() else 0xFFAD9B82.toInt()
+        }
+        for (i in 0 until 5) {
+            val frac = (i + 0.4f) / 5.2f
+            val sy = groundTopY + (h - groundTopY) * frac
+            val sx = w * 0.50f + sin(frac * 3.1f) * 24f * u
+            val rx = (44f + frac * 48f) * u
+            val ry = (12f + frac * 14f) * u
+            canvas.drawOval(RectF(sx - rx, sy - ry, sx + rx, sy + ry), stonePaint)
+        }
+
+        // Layered stylized grass tufts across meadow
+        val tuftColor = when (style) {
+            AnimationStyle.TECH_EXPLAINER -> 0xFF1C3847.toInt()
+            AnimationStyle.CHIBI_STORYTIME -> 0xFF398862.toInt()
+            else -> 0xFF2B6F4B.toInt()
+        }
+        val tuftPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = tuftColor
+            strokeWidth = 4.5f * u
+            strokeCap = Paint.Cap.ROUND
+            setStyle(Paint.Style.STROKE)
+        }
+        for (i in 0 until 26) {
+            val gx = rng.nextFloat() * w
+            val gy = groundTopY + 18f * u + rng.nextFloat() * (h - groundTopY - 36f * u)
+            if (gx in (w * 0.36f)..(w * 0.64f)) continue
+            val gh = (14f + (gy - groundTopY) / (h - groundTopY) * 20f) * u
+            canvas.drawLine(gx, gy, gx - 9f * u, gy - gh, tuftPaint)
+            canvas.drawLine(gx, gy, gx, gy - gh * 1.15f, tuftPaint)
+            canvas.drawLine(gx, gy, gx + 9f * u, gy - gh * 0.9f, tuftPaint)
+        }
+    }
+
+    private fun darkenColor(color: Int, factor: Float): Int = scaleColorBrightness(color, factor)
+    private fun lightenColor(color: Int, factor: Float): Int = scaleColorBrightness(color, factor)
+
+    private fun scaleColorBrightness(color: Int, factor: Float): Int {
+        val a = Color.alpha(color)
+        val r = (Color.red(color) * factor).toInt().coerceIn(0, 255)
+        val g = (Color.green(color) * factor).toInt().coerceIn(0, 255)
+        val b = (Color.blue(color) * factor).toInt().coerceIn(0, 255)
+        return Color.argb(a, r, g, b)
     }
 }

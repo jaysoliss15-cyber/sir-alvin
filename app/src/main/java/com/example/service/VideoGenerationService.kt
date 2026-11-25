@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -19,12 +20,16 @@ import com.example.art.AiHordeImageClient
 import com.example.data.SettingsDataStore
 import com.example.data.VideoGalleryRepository
 import com.example.llm.LlmDirectorClient
+import com.example.model.ActorRole
 import com.example.model.AnimationStyle
 import com.example.model.GenerationProgress
 import com.example.model.PipelineStep
+import com.example.model.ProductionMode
 import com.example.model.TimelineScene
 import com.example.model.WordTiming
+import com.example.render.CharacterSpriteProcessor
 import com.example.render.DeterministicVideoExporter
+import com.example.render.ExternalClipFrameSource
 import com.example.tts.AudioPcmStitcher
 import com.example.tts.ElevenLabsClient
 import kotlinx.coroutines.CancellationException
@@ -50,6 +55,8 @@ class VideoGenerationService : Service() {
         const val EXTRA_STYLE = "extra_style"
         const val EXTRA_DURATION_SEC = "extra_duration_sec"
         const val EXTRA_VOICE_ID = "extra_voice_id"
+        const val EXTRA_PRODUCTION_MODE = "extra_production_mode"
+        const val EXTRA_IMPORTED_CLIP_URIS = "extra_imported_clip_uris"
 
         private const val CHANNEL_ID = "toonforge_render_channel"
         private const val NOTIFICATION_ID = 4201
@@ -82,6 +89,15 @@ class VideoGenerationService : Service() {
                     ?: AnimationStyle.PAPER_DIORAMA
                 val durationSec = intent.getIntExtra(EXTRA_DURATION_SEC, 30)
                 val voiceId = intent.getStringExtra(EXTRA_VOICE_ID).orEmpty()
+                val productionMode = ProductionMode.fromRaw(intent.getStringExtra(EXTRA_PRODUCTION_MODE))
+                val importedClipUris = intent.getStringArrayListExtra(EXTRA_IMPORTED_CLIP_URIS)
+                    ?.mapNotNull { runCatching { Uri.parse(it) }.getOrNull() }
+                    .orEmpty()
+                val effectiveStyle = if (productionMode == ProductionMode.CROSS_SECTION_EXPLAINER) {
+                    AnimationStyle.CROSS_SECTION
+                } else {
+                    style
+                }
 
                 if (topic.isEmpty()) {
                     stopSelf()
@@ -102,7 +118,14 @@ class VideoGenerationService : Service() {
 
                 activeJob?.cancel()
                 activeJob = serviceScope.launch {
-                    runPipeline(topic, style, durationSec, voiceId)
+                    runPipeline(
+                        topic = topic,
+                        style = effectiveStyle,
+                        durationSec = durationSec,
+                        voiceIdOverride = voiceId,
+                        productionMode = productionMode,
+                        importedClipUris = importedClipUris
+                    )
                 }
             }
         }
@@ -113,7 +136,9 @@ class VideoGenerationService : Service() {
         topic: String,
         style: AnimationStyle,
         durationSec: Int,
-        voiceIdOverride: String
+        voiceIdOverride: String,
+        productionMode: ProductionMode,
+        importedClipUris: List<Uri>
     ) {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         val wakeLock = powerManager.newWakeLock(
@@ -126,6 +151,8 @@ class VideoGenerationService : Service() {
             mkdirs()
         }
         val renderBackdrops = mutableListOf<Bitmap>()
+        var customSprites: Map<ActorRole, Bitmap> = emptyMap()
+        var externalClipFrameSource: ExternalClipFrameSource? = null
 
         try {
             val settingsStore = SettingsDataStore(applicationContext)
@@ -203,6 +230,9 @@ class VideoGenerationService : Service() {
                     keyPool = settingsStore.getSnapshot().elevenLabsKeys,
                     allowOfflineFallback = settings.allowOfflineTtsFallback,
                     tempCacheDir = tempWorkDir,
+                    customDictionary = settings.pronunciationDictionary,
+                    previousText = scenes.getOrNull(idx - 1)?.tagalogNarration,
+                    nextText = scenes.getOrNull(idx + 1)?.tagalogNarration,
                     onKeyStatusUpdate = { updatedKey ->
                         settingsStore.updateElevenLabsKeyEntry(updatedKey)
                     }
@@ -216,71 +246,161 @@ class VideoGenerationService : Service() {
                 timingsPerScene.add(synth.localWordTimings)
             }
 
+            val customBgmPcm = if (settings.customBgmPath.isNotBlank()) {
+                runCatching {
+                    val bgmFile = File(settings.customBgmPath)
+                    if (bgmFile.exists() && bgmFile.canRead()) {
+                        AudioPcmStitcher.decodeAudioBytesToPcm44100Mono(
+                            audioBytes = bgmFile.readBytes(),
+                            isWav = bgmFile.name.endsWith(".wav", ignoreCase = true),
+                            tempCacheDir = tempWorkDir
+                        )
+                    } else null
+                }.getOrNull()
+            } else null
+
             val stitchedAudio = AudioPcmStitcher.stitchScenes(
                 decodedPcmPerScene = pcmPerScene,
                 localTimingsPerScene = timingsPerScene,
-                narrationPerScene = scenes.map { it.tagalogNarration }
+                narrationPerScene = scenes.map { it.tagalogNarration },
+                scenes = scenes,
+                style = style,
+                customBgmPcm44100Mono = customBgmPcm
             )
             pcmPerScene.clear() // release per-scene chunks immediately; keep unified buffer
 
-            // STEP 3: ART / BACKDROP PIPELINE
-            val imageClient = AiHordeImageClient()
+            // STEP 3: ART / CLIPS / BACKDROP PIPELINE
             val timelineScenes = mutableListOf<TimelineScene>()
             val previewScenes = mutableListOf<TimelineScene>()
 
-            scenes.forEachIndexed { idx, scene ->
-                currentCoroutineContext().ensureActive()
-                val frac = (idx + 1).toFloat() / scenes.size.toFloat()
-                val artLabel = if (style.usesNetworkArt) {
-                    "Generating ${style.badge} backdrop (${idx + 1}/${scenes.size})..."
+            if (productionMode == ProductionMode.CLIP_AUTO_EDITOR && importedClipUris.isNotEmpty()) {
+                publish(
+                    PipelineStep.ART,
+                    0.2f,
+                    0.46f,
+                    "Preparing ${importedClipUris.size} imported video/image clip(s) for Auto-HUD...",
+                    sceneIdx = 0,
+                    sceneCount = scenes.size
+                )
+                externalClipFrameSource = ExternalClipFrameSource(
+                    context = applicationContext,
+                    clipUris = importedClipUris,
+                    targetWidth = DeterministicVideoExporter.VIDEO_WIDTH,
+                    targetHeight = DeterministicVideoExporter.VIDEO_HEIGHT
+                )
+                scenes.forEachIndexed { idx, scene ->
+                    currentCoroutineContext().ensureActive()
+                    val sampleThumb = externalClipFrameSource?.getFrameBitmap(idx, 100.0)?.let {
+                        Bitmap.createScaledBitmap(it, 360, 640, true)
+                    }
+                    val startMs = stitchedAudio.sceneStartMs[idx]
+                    val endMs = stitchedAudio.sceneEndMs[idx]
+                    val wordTimings = stitchedAudio.sceneWordTimings[idx]
+                    timelineScenes.add(
+                        TimelineScene(
+                            scene = scene,
+                            startMs = startMs,
+                            endMs = endMs,
+                            wordTimings = wordTimings,
+                            backdropBitmap = null
+                        )
+                    )
+                    previewScenes.add(
+                        TimelineScene(
+                            scene = scene,
+                            startMs = startMs,
+                            endMs = endMs,
+                            wordTimings = wordTimings,
+                            backdropBitmap = sampleThumb
+                        )
+                    )
+                    publish(
+                        PipelineStep.ART,
+                        (idx + 1).toFloat() / scenes.size.toFloat(),
+                        0.46f + ((idx + 1).toFloat() / scenes.size.toFloat()) * 0.18f,
+                        "Indexed clip ${idx + 1}/${scenes.size}...",
+                        sceneIdx = idx + 1,
+                        sceneCount = scenes.size
+                    )
+                }
+            } else {
+                val imageClient = AiHordeImageClient()
+                val artBatchStartMsg = if (style.usesNetworkArt) {
+                    "Fetching ${scenes.size} ${style.badge} diorama backdrops in parallel..."
                 } else {
-                    "Drawing offline whiteboard paper (${idx + 1}/${scenes.size})..."
+                    "Generating ${scenes.size} offline ${style.badge} stages..."
                 }
                 publish(
                     PipelineStep.ART,
-                    frac,
-                    0.42f + frac * 0.22f,
-                    artLabel,
-                    sceneIdx = idx + 1,
+                    0.05f,
+                    0.42f,
+                    artBatchStartMsg,
+                    sceneIdx = 0,
                     sceneCount = scenes.size
                 )
 
-                val backdropRes = imageClient.generateBackdrop(
-                    scenePrompt = scene.backgroundPrompt,
+                val backdropResults = imageClient.generateBackdropsBatch(
+                    scenes = scenes,
                     style = style,
                     aiHordeApiKey = settings.aiHordeKey,
-                    seed = scene.sceneId * 1013 + topic.hashCode()
-                )
-                renderBackdrops.add(backdropRes.bitmap)
-
-                val previewThumb = Bitmap.createScaledBitmap(backdropRes.bitmap, 360, 640, true)
-                val startMs = stitchedAudio.sceneStartMs[idx]
-                val endMs = stitchedAudio.sceneEndMs[idx]
-                val wordTimings = stitchedAudio.sceneWordTimings[idx]
-
-                timelineScenes.add(
-                    TimelineScene(
-                        scene = scene,
-                        startMs = startMs,
-                        endMs = endMs,
-                        wordTimings = wordTimings,
-                        backdropBitmap = backdropRes.bitmap
+                    topicSeed = topic.hashCode()
+                ) { doneCount, totalCount ->
+                    val frac = doneCount.toFloat() / totalCount.coerceAtLeast(1).toFloat()
+                    val label = if (style.usesNetworkArt) {
+                        "Downloaded/rendered backdrop ($doneCount/$totalCount)..."
+                    } else {
+                        "Prepared offline stage ($doneCount/$totalCount)..."
+                    }
+                    publish(
+                        PipelineStep.ART,
+                        frac,
+                        0.42f + frac * 0.22f,
+                        label,
+                        sceneIdx = doneCount,
+                        sceneCount = totalCount
                     )
-                )
-                previewScenes.add(
-                    TimelineScene(
-                        scene = scene,
-                        startMs = startMs,
-                        endMs = endMs,
-                        wordTimings = wordTimings,
-                        backdropBitmap = previewThumb
+                }
+
+                scenes.forEachIndexed { idx, scene ->
+                    currentCoroutineContext().ensureActive()
+                    val backdropRes = backdropResults[idx]
+                    renderBackdrops.add(backdropRes.bitmap)
+
+                    val previewThumb = Bitmap.createScaledBitmap(backdropRes.bitmap, 360, 640, true)
+                    val startMs = stitchedAudio.sceneStartMs[idx]
+                    val endMs = stitchedAudio.sceneEndMs[idx]
+                    val wordTimings = stitchedAudio.sceneWordTimings[idx]
+
+                    timelineScenes.add(
+                        TimelineScene(
+                            scene = scene,
+                            startMs = startMs,
+                            endMs = endMs,
+                            wordTimings = wordTimings,
+                            backdropBitmap = backdropRes.bitmap
+                        )
                     )
-                )
+                    previewScenes.add(
+                        TimelineScene(
+                            scene = scene,
+                            startMs = startMs,
+                            endMs = endMs,
+                            wordTimings = wordTimings,
+                            backdropBitmap = previewThumb
+                        )
+                    )
+                }
             }
 
             PipelineProgressBus.update { cur ->
                 cur.copy(generatedScenesPreview = previewScenes)
             }
+
+            // Load optional custom PNG character cutouts with sticker outlines
+            customSprites = CharacterSpriteProcessor.loadCustomSpritesMap(
+                paths = settings.customSpritePaths,
+                stickerOutline = settings.spriteStickerOutline
+            )
 
             // STEP 4 & 5: PUPPET RENDER + EGL14/MEDIACODEC/MEDIAMUXER
             val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
@@ -314,7 +434,10 @@ class VideoGenerationService : Service() {
                         0.95f,
                         msg
                     )
-                }
+                },
+                productionMode = productionMode,
+                customSprites = customSprites,
+                externalClipFrameSource = externalClipFrameSource
             )
 
             PipelineProgressBus.update { cur ->
@@ -357,6 +480,11 @@ class VideoGenerationService : Service() {
                 runCatching { if (!bmp.isRecycled) bmp.recycle() }
             }
             renderBackdrops.clear()
+            customSprites.values.forEach { bmp ->
+                runCatching { if (!bmp.isRecycled) bmp.recycle() }
+            }
+            customSprites = emptyMap()
+            runCatching { externalClipFrameSource?.close() }
             runCatching { tempWorkDir.deleteRecursively() }
             runCatching {
                 if (wakeLock.isHeld) wakeLock.release()

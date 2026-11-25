@@ -1,5 +1,7 @@
 package com.example.tts
 
+import com.example.model.PronunciationEntry
+
 object TagalogPhoneticNormalizer {
 
     private val ACRONYM_MAP = mapOf(
@@ -43,8 +45,21 @@ object TagalogPhoneticNormalizer {
         "hustle" to "hasol"
     )
 
-    fun normalize(raw: String): String {
+    fun normalize(
+        raw: String,
+        customDictionary: List<PronunciationEntry> = emptyList()
+    ): String {
         var text = raw.trim()
+        if (text.isEmpty()) return ""
+
+        val customPesoUnit = customDictionary
+            .firstOrNull { it.original.trim() == "₱" }
+            ?.spoken?.trim()?.ifBlank { null }
+            ?: "piso"
+        val customPercentUnit = customDictionary
+            .firstOrNull { it.original.trim() == "%" }
+            ?.spoken?.trim()?.ifBlank { null }
+            ?: "porsyento"
 
         // 1. Expand Philippine Peso currency: ₱1,500.50 or ₱500
         val pesoRegex = Regex("₱\\s*([0-9,]+)(?:\\.(\\d{1,2}))?")
@@ -55,9 +70,9 @@ object TagalogPhoneticNormalizer {
             val wholeWords = numberToTagalog(whole)
             if (centsStr.isNotEmpty() && (centsStr.toIntOrNull() ?: 0) > 0) {
                 val cents = centsStr.padEnd(2, '0').toLongOrNull() ?: 0L
-                "$wholeWords piso at ${numberToTagalog(cents)} sentimo"
+                "$wholeWords $customPesoUnit at ${numberToTagalog(cents)} sentimo"
             } else {
-                "$wholeWords piso"
+                "$wholeWords $customPesoUnit"
             }
         }
 
@@ -65,10 +80,35 @@ object TagalogPhoneticNormalizer {
         val percentRegex = Regex("(\\d+)\\s*%")
         text = percentRegex.replace(text) { match ->
             val num = match.groupValues[1].toLongOrNull() ?: 0L
-            "${numberToTagalog(num)} porsyento"
+            "${numberToTagalog(num)} $customPercentUnit"
         }
 
-        // 3. Expand standalone integers (up to 999,999,999)
+        // 3. Apply editable custom dictionary entries BEFORE integer/loanword passes so custom words win
+        val sortedCustom = customDictionary
+            .filter { it.original.isNotBlank() && it.spoken.isNotBlank() }
+            .sortedByDescending { it.original.length }
+
+        for (entry in sortedCustom) {
+            val orig = entry.original.trim()
+            val spoken = entry.spoken.trim()
+            if (orig == "₱") {
+                text = text.replace("₱", " $customPesoUnit ")
+                continue
+            }
+            if (orig == "%") {
+                text = text.replace("%", " $customPercentUnit ")
+                continue
+            }
+            val isWordLike = orig.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == ' ' }
+            val pattern = if (isWordLike) {
+                Regex("\\b${Regex.escape(orig)}\\b", RegexOption.IGNORE_CASE)
+            } else {
+                Regex(Regex.escape(orig), RegexOption.IGNORE_CASE)
+            }
+            text = pattern.replace(text) { " $spoken " }
+        }
+
+        // 4. Expand standalone integers (up to 999,999,999)
         val numberRegex = Regex("\\b\\d{1,3}(?:,\\d{3})*\\b|\\b\\d{1,9}\\b")
         text = numberRegex.replace(text) { match ->
             val clean = match.value.replace(",", "")
@@ -80,14 +120,19 @@ object TagalogPhoneticNormalizer {
             }
         }
 
-        // 4. Expand acronyms (case-insensitive exact word)
+        // 5. Expand built-in acronyms (unless overridden or explicitly used as spoken target in customDictionary)
+        val protectedWords = sortedCustom
+            .flatMap { listOf(it.original.trim().lowercase(), it.spoken.trim().lowercase()) }
+            .toSet()
         for ((acronym, spoken) in ACRONYM_MAP) {
+            if (acronym.lowercase() in protectedWords) continue
             val regex = Regex("\\b${Regex.escape(acronym)}\\b", RegexOption.IGNORE_CASE)
             text = regex.replace(text, spoken)
         }
 
-        // 5. Smooth tricky English loanwords into natural Tagalog phonetics
+        // 6. Smooth tricky English loanwords into natural Tagalog phonetics
         for ((loan, phonetic) in LOANWORD_MAP) {
+            if (loan.lowercase() in protectedWords) continue
             val regex = Regex("\\b${Regex.escape(loan)}\\b", RegexOption.IGNORE_CASE)
             text = regex.replace(text, phonetic)
         }

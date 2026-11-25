@@ -94,6 +94,8 @@ import com.example.model.ActorRole
 import com.example.model.AnimationStyle
 import com.example.model.HudWidget
 import com.example.model.PipelineStep
+import com.example.model.ProductionMode
+import com.example.model.ShotFraming
 import com.example.model.StatusPill
 import com.example.model.WorldFx
 import com.example.render.SceneCompositor
@@ -117,7 +119,10 @@ fun StudioScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val progress by viewModel.progress.collectAsStateWithLifecycle()
     val topic by viewModel.topic.collectAsStateWithLifecycle()
+    val productionMode by viewModel.productionMode.collectAsStateWithLifecycle()
     val selectedStyle by viewModel.selectedStyle.collectAsStateWithLifecycle()
+    val importedClips by viewModel.importedClips.collectAsStateWithLifecycle()
+    val previewCustomSprites by viewModel.previewCustomSprites.collectAsStateWithLifecycle()
     val selectedDurationSec by viewModel.selectedDurationSec.collectAsStateWithLifecycle()
     val previewPlaying by viewModel.previewPlaying.collectAsStateWithLifecycle()
     val previewTimeMs by viewModel.previewTimeMs.collectAsStateWithLifecycle()
@@ -126,6 +131,7 @@ fun StudioScreen(
     val demoFx by viewModel.demoWorldFx.collectAsStateWithLifecycle()
     val demoPill by viewModel.demoStatusPill.collectAsStateWithLifecycle()
     val demoHudWidget by viewModel.demoHudWidget.collectAsStateWithLifecycle()
+    val demoShotFraming by viewModel.demoShotFraming.collectAsStateWithLifecycle()
 
     val activeTemplate = settings.activeTemplate
     var showPromptEditor by remember { mutableStateOf(false) }
@@ -192,6 +198,21 @@ fun StudioScreen(
         ) {
             // Studio Header Banner
             StudioTopHeader()
+
+            // 0. THREE STUDIO PRO PRODUCTION MODES + CLIP AUTO-HUD PICKER
+            ProductionModeSelectorCard(
+                selectedMode = productionMode,
+                onSelectMode = { viewModel.selectProductionMode(it) }
+            )
+
+            AnimatedVisibility(visible = productionMode == ProductionMode.CLIP_AUTO_EDITOR) {
+                ClipAutoEditorPickerCard(
+                    clips = importedClips,
+                    onAddClips = { viewModel.addImportedClips(it) },
+                    onRemoveClip = { viewModel.removeImportedClip(it) },
+                    onClearClips = { viewModel.clearImportedClips() }
+                )
+            }
 
             // 1. MASTER PROMPT TEMPLATE BAR + .TXT IMPORTER + INLINE EDITOR
             Card(
@@ -503,7 +524,7 @@ fun StudioScreen(
             // 3. HORIZONTAL ANIMATION STYLE PRESET CARDS
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Animation Style Preset (6 Engines)",
+                    text = "Animation Style Preset (${AnimationStyle.entries.size} Engines)",
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(horizontal = 2.dp)
                 )
@@ -657,6 +678,22 @@ fun StudioScreen(
                 }
             }
 
+            // 4B. QUICK STUDIO PRO SPRITE & BGM CONTROLS
+            CharacterSpriteManagerCard(
+                customSpritePaths = settings.customSpritePaths,
+                previewSprites = previewCustomSprites,
+                stickerOutlineEnabled = settings.spriteStickerOutline,
+                onImportSprite = { role, uri -> viewModel.importCharacterSprite(role, uri) },
+                onRemoveSprite = { role -> viewModel.removeCharacterSprite(role) },
+                onToggleStickerOutline = { viewModel.setSpriteStickerOutline(it) }
+            )
+
+            CustomBgmCard(
+                customBgmName = settings.customBgmName,
+                onImportBgm = { uri -> viewModel.importCustomBgm(uri) },
+                onClearBgm = { viewModel.clearCustomBgm() }
+            )
+
             // 5. GENERATE VIDEO CTA + LIVE PIPELINE STEPPER
             if (!progress.isRunning) {
                 Button(
@@ -674,7 +711,11 @@ fun StudioScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Generate Animated Video (1080x1920)",
+                        text = when (productionMode) {
+                            ProductionMode.CLIP_AUTO_EDITOR -> "Finish Clips + Auto-HUD (1080x1920)"
+                            ProductionMode.CROSS_SECTION_EXPLAINER -> "Generate 2D Cutaway Video (1080x1920)"
+                            ProductionMode.FULL_AI_STORY -> "Generate Animated Video (1080x1920)"
+                        },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -709,7 +750,9 @@ fun StudioScreen(
             // 6. INTERACTIVE LIVE 9:16 CANVAS PREVIEW
             LiveCanvasPreviewCard(
                 viewModel = viewModel,
+                productionMode = productionMode,
                 selectedStyle = selectedStyle,
+                customSprites = previewCustomSprites,
                 previewPlaying = previewPlaying,
                 previewTimeMs = previewTimeMs,
                 generatedScenes = progress.generatedScenesPreview,
@@ -717,7 +760,8 @@ fun StudioScreen(
                 demoAction = demoAction,
                 demoFx = demoFx,
                 demoPill = demoPill,
-                demoHudWidget = demoHudWidget
+                demoHudWidget = demoHudWidget,
+                demoShotFraming = demoShotFraming
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -914,7 +958,9 @@ private fun PipelineProgressCard(
 @Composable
 private fun LiveCanvasPreviewCard(
     viewModel: MainViewModel,
+    productionMode: ProductionMode,
     selectedStyle: AnimationStyle,
+    customSprites: Map<ActorRole, android.graphics.Bitmap>,
     previewPlaying: Boolean,
     previewTimeMs: Double,
     generatedScenes: List<com.example.model.TimelineScene>,
@@ -922,10 +968,11 @@ private fun LiveCanvasPreviewCard(
     demoAction: ActorAction,
     demoFx: WorldFx,
     demoPill: StatusPill,
-    demoHudWidget: HudWidget
+    demoHudWidget: HudWidget,
+    demoShotFraming: ShotFraming
 ) {
     val activeScenes = remember(
-        generatedScenes, selectedStyle, demoRole, demoAction, demoFx, demoPill, demoHudWidget
+        generatedScenes, selectedStyle, demoRole, demoAction, demoFx, demoPill, demoHudWidget, demoShotFraming
     ) {
         if (generatedScenes.isNotEmpty()) generatedScenes else viewModel.buildDemoPreviewScenes()
     }
@@ -959,7 +1006,7 @@ private fun LiveCanvasPreviewCard(
                 IconButton(
                     onClick = { viewModel.togglePreviewPlay() },
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(ForgeCoral)
                         .testTag("preview_play_pause")
@@ -990,7 +1037,9 @@ private fun LiveCanvasPreviewCard(
                             scenes = activeScenes,
                             style = selectedStyle,
                             currentMs = previewTimeMs,
-                            fallbackBackdropCache = viewModel.previewBackdropCache
+                            fallbackBackdropCache = viewModel.previewBackdropCache,
+                            productionMode = productionMode,
+                            customSprites = customSprites
                         )
                     }
                 }
@@ -1085,6 +1134,26 @@ private fun LiveCanvasPreviewCard(
                             selected = widget == demoHudWidget,
                             onClick = { viewModel.setDemoHudWidget(widget) },
                             label = { Text("HUD: ${widget.name}", style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        ShotFraming.WIDE_FULL_BODY,
+                        ShotFraming.MEDIUM_WAIST_UP,
+                        ShotFraming.CLOSE_UP_FACE,
+                        ShotFraming.RULE_OF_THIRDS_LEFT,
+                        ShotFraming.RULE_OF_THIRDS_RIGHT
+                    ).forEach { framing ->
+                        FilterChip(
+                            selected = framing == demoShotFraming,
+                            onClick = { viewModel.setDemoShotFraming(framing) },
+                            label = { Text("Shot: ${framing.name}", style = MaterialTheme.typography.labelSmall) }
                         )
                     }
                 }

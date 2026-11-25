@@ -12,6 +12,7 @@ import android.graphics.Shader
 import android.graphics.Typeface
 import com.example.model.AnimationStyle
 import com.example.model.HudWidget
+import com.example.model.ProductionMode
 import com.example.model.SceneScript
 import com.example.model.StatusPill
 import kotlin.math.PI
@@ -31,14 +32,19 @@ object MotionGraphicsOverlayRenderer {
         style: AnimationStyle,
         sceneElapsedSec: Float,
         sceneDurationSec: Float,
-        globalTimeSec: Float
+        globalTimeSec: Float,
+        productionMode: ProductionMode = ProductionMode.FULL_AI_STORY
     ) {
         val u = w / 1080f
+        val autoHudEnabled = style == AnimationStyle.TECH_EXPLAINER ||
+            style == AnimationStyle.CROSS_SECTION ||
+            productionMode == ProductionMode.CLIP_AUTO_EDITOR ||
+            productionMode == ProductionMode.CROSS_SECTION_EXPLAINER
 
-        // In TECH_EXPLAINER, ensure rich HUD elements are active on every scene even if omitted
+        // Ensure rich HUD elements are active in Tech Explainer, Cutaway, and Clip Auto-HUD modes
         val effectivePill = if (scene.statusPill != StatusPill.NONE) {
             scene.statusPill
-        } else if (style == AnimationStyle.TECH_EXPLAINER) {
+        } else if (autoHudEnabled) {
             when ((scene.sceneId - 1).coerceAtLeast(0) % 4) {
                 0 -> StatusPill.GOAL
                 1 -> StatusPill.PROBLEM
@@ -48,7 +54,7 @@ object MotionGraphicsOverlayRenderer {
         } else StatusPill.NONE
 
         val effectiveCallout = scene.calloutBanner.ifBlank {
-            if (style == AnimationStyle.TECH_EXPLAINER) {
+            if (autoHudEnabled) {
                 when (effectivePill) {
                     StatusPill.PROBLEM -> "MALAKING MALI!"
                     StatusPill.FIX -> "ITO ANG SOLUSYON"
@@ -60,7 +66,7 @@ object MotionGraphicsOverlayRenderer {
 
         val effectiveWidget = if (scene.hudWidget != HudWidget.NONE) {
             scene.hudWidget
-        } else if (style == AnimationStyle.TECH_EXPLAINER) {
+        } else if (autoHudEnabled) {
             when ((scene.sceneId - 1).coerceAtLeast(0) % 3) {
                 0 -> HudWidget.PROGRESS_GAUGE
                 1 -> HudWidget.WAVEFORM_GRAPH
@@ -68,13 +74,30 @@ object MotionGraphicsOverlayRenderer {
             }
         } else HudWidget.NONE
 
-        // 1. Top Status Pill (y = 160px @ 1080x1920)
-        if (effectivePill != StatusPill.NONE) {
+        // 1. Top Status Pill / VIRAL_2D_EXPLAINER Topic Pill Badge (y = 148-160px @ 1080x1920)
+        if (style == AnimationStyle.VIRAL_2D_EXPLAINER) {
+            val badgeText = scene.topicPillLabel.ifBlank {
+                scene.calloutBanner.ifBlank {
+                    when (effectivePill) {
+                        StatusPill.PROBLEM -> "BAKIT DELIKADO?"
+                        StatusPill.FIX -> "ITO ANG SOLUSYON"
+                        StatusPill.SECRET -> "SIKRETO NG PRO"
+                        StatusPill.GOAL -> "SCIENCE EXPLAINED"
+                        StatusPill.NONE -> when ((scene.sceneId - 1).coerceAtLeast(0) % 3) {
+                            0 -> "ALAM MO BA?"
+                            1 -> "PAANO NANGYARI?"
+                            else -> "PRO TIP"
+                        }
+                    }
+                }
+            }.uppercase()
+            drawTopicPillBadge(canvas, w, u, badgeText, effectivePill, scene.sceneId, sceneElapsedSec)
+        } else if (effectivePill != StatusPill.NONE) {
             drawStatusPill(canvas, w, u, effectivePill, sceneElapsedSec)
         }
 
         // 2. Tilted Pop-In Callout Banner + PathMeasure curved pointer arrow
-        if (effectiveCallout.isNotBlank()) {
+        if (effectiveCallout.isNotBlank() && style != AnimationStyle.VIRAL_2D_EXPLAINER) {
             drawCalloutBanner(canvas, w, h, u, scene.sceneId, effectiveCallout, sceneElapsedSec)
         }
 
@@ -92,6 +115,65 @@ object MotionGraphicsOverlayRenderer {
                 globalTimeSec = globalTimeSec
             )
         }
+    }
+
+    private fun drawTopicPillBadge(
+        canvas: Canvas,
+        w: Float,
+        u: Float,
+        label: String,
+        pill: StatusPill,
+        sceneId: Int,
+        sceneElapsedSec: Float
+    ) {
+        val popT = (sceneElapsedSec / 0.35f).coerceIn(0f, 1f)
+        val scale = Easing.easeOutBack(popT).coerceAtLeast(0.1f)
+        val cy = 148f * u
+
+        val bgColor = when (pill) {
+            StatusPill.PROBLEM -> 0xFFDC2626.toInt()
+            StatusPill.FIX -> 0xFF16A34A.toInt()
+            StatusPill.SECRET -> 0xFF2563EB.toInt()
+            StatusPill.GOAL -> 0xFF0284C7.toInt()
+            StatusPill.NONE -> if (sceneId % 2 == 1) 0xFF2563EB.toInt() else 0xFF16A34A.toInt()
+        }
+
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = 36f * u
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            letterSpacing = 0.08f
+        }
+        val textW = textPaint.measureText(label)
+        val padX = 44f * u
+        val pillW = (textW + padX * 2f).coerceAtMost(w * 0.86f)
+        val pillH = 72f * u
+        val left = (w - pillW) * 0.5f
+        val rect = RectF(left, cy - pillH * 0.5f, left + pillW, cy + pillH * 0.5f)
+
+        canvas.save()
+        canvas.scale(scale, scale, w * 0.5f, cy)
+
+        val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x66000000
+            maskFilter = BlurMaskFilter((10f * u).coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.drawRoundRect(
+            RectF(rect.left + 4f * u, rect.top + 8f * u, rect.right + 4f * u, rect.bottom + 8f * u),
+            pillH * 0.5f, pillH * 0.5f, shadowPaint
+        )
+
+        canvas.drawRoundRect(rect, pillH * 0.5f, pillH * 0.5f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = bgColor })
+        canvas.drawRoundRect(rect, pillH * 0.5f, pillH * 0.5f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFF0E1018.toInt()
+            setStyle(Paint.Style.STROKE)
+            strokeWidth = 6f * u
+        })
+
+        val fm = textPaint.fontMetrics
+        val textY = cy - (fm.ascent + fm.descent) * 0.5f
+        canvas.drawText(label, w * 0.5f - textW * 0.5f, textY, textPaint)
+        canvas.restore()
     }
 
     private fun drawStatusPill(
@@ -231,9 +313,9 @@ object MotionGraphicsOverlayRenderer {
         if (arrowProgress > 0.02f) {
             val startX = cx
             val startY = cy + boxH * 0.55f
-            val endX = w * 0.52f + (if (onRight) 40f * u else -40f * u)
-            val endY = h * 0.365f
-            val ctrlX = if (onRight) cx + 25f * u else cx - 25f * u
+            val endX = w * 0.52f + (if (onRight) 44f * u else -44f * u)
+            val endY = h * 0.34f
+            val ctrlX = if (onRight) cx + 22f * u else cx - 22f * u
             val ctrlY = (startY + endY) * 0.55f
 
             val arrowPath = Path().apply {
@@ -291,8 +373,8 @@ object MotionGraphicsOverlayRenderer {
     ) {
         val cardLeft = w * 0.08f
         val cardRight = w * 0.92f
-        val cardTop = h * 0.565f
-        val cardBottom = h * 0.720f
+        val cardTop = h * (1120f / 1920f)
+        val cardBottom = h * (1420f / 1920f)
         val cardRect = RectF(cardLeft, cardTop, cardRight, cardBottom)
 
         // Slide-up + fade entrance over first 0.28s
@@ -301,11 +383,11 @@ object MotionGraphicsOverlayRenderer {
         canvas.translate(0f, (1f - enterT) * 40f * u)
 
         // Semi-transparent dark glass card
-        val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xD6101522.toInt() }
+        val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xDE0E1422.toInt() }
         canvas.drawRoundRect(cardRect, 24f * u, 24f * u, glassPaint)
 
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0x6600E5FF
+            color = 0x7700E5FF
             setStyle(Paint.Style.STROKE)
             strokeWidth = 3.5f * u
         }

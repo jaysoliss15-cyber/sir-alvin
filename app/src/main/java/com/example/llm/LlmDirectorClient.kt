@@ -48,6 +48,7 @@ class LlmDirectorClient(
             append("Topic: $topic\n")
             append("Animation Style: ${style.displayName}\n")
             append("Target Duration: ${durationSeconds} seconds\n")
+            append("Use natural conversational Filipino/Tagalog (no literal English idiom translations, no gibberish).\n")
             append("Write the Tagalog scenes JSON array now.")
         }
 
@@ -138,7 +139,7 @@ class LlmDirectorClient(
             try {
                 onStatus("Writing Tagalog script via $providerName (try $attempt/3)...")
                 val retryHint = if (attempt > 1) {
-                    "\nCRITICAL: Previous output was malformed JSON. Output ONLY a raw JSON array starting with '[' and ending with ']'."
+                    "\nCRITICAL: Previous output had malformed JSON or unnatural/gibberish Tagalog (${lastError?.message ?: "error"}). Output ONLY a raw JSON array starting with '[' and ending with ']' with natural everyday conversational Tagalog."
                 } else ""
 
                 val payload = JSONObject().apply {
@@ -201,7 +202,7 @@ class LlmDirectorClient(
             try {
                 onStatus("Writing Tagalog script via AI Horde (free keyless, try $attempt/3)...")
                 val retryHint = if (attempt > 1) {
-                    "\nOutput ONLY a valid JSON array starting with '[' and ending with ']'."
+                    "\nOutput ONLY a valid JSON array starting with '[' and ending with ']' using natural conversational Tagalog (no gibberish or literal English idioms)."
                 } else ""
 
                 val combinedPrompt = buildString {

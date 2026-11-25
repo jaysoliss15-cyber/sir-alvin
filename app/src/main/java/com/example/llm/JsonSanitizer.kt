@@ -1,10 +1,17 @@
 package com.example.llm
 
 import com.example.model.ActorAction
+import com.example.model.ActorExpression
+import com.example.model.ActorHeadgear
 import com.example.model.ActorRole
 import com.example.model.CameraMotion
+import com.example.model.CharacterPose
+import com.example.model.HandProp
 import com.example.model.HudWidget
+import com.example.model.MetaphorVisual
 import com.example.model.SceneScript
+import com.example.model.ShotFraming
+import com.example.model.ShotType
 import com.example.model.StatusPill
 import com.example.model.WorldFx
 import org.json.JSONArray
@@ -75,7 +82,7 @@ object JsonSanitizer {
         }
 
         val sceneId = obj.optInt("scene_id", index + 1)
-        val narration = obj.optString("tagalog_narration", "").trim()
+        val narration = TagalogNarrationValidator.cleanForTts(obj.optString("tagalog_narration", ""))
         val bgPrompt = obj.optString("background_prompt", "").trim()
         val camRaw = obj.optString("camera_motion", "").trim().uppercase()
         val roleRaw = obj.optString("actor_role", "").trim().uppercase()
@@ -85,6 +92,7 @@ object JsonSanitizer {
         if (narration.isEmpty()) {
             throw MalformedSceneJsonException("Scene[$index] has empty tagalog_narration")
         }
+        TagalogNarrationValidator.validateOrThrow(narration)
         if (bgPrompt.isEmpty()) {
             throw MalformedSceneJsonException("Scene[$index] has empty background_prompt")
         }
@@ -109,6 +117,17 @@ object JsonSanitizer {
             emptyList()
         }
 
+        val shotFraming = ShotFraming.fromRaw(obj.optString("shot_framing", "AUTO"))
+        val characterPose = CharacterPose.fromRaw(obj.optString("character_pose", "AUTO"))
+        val handProp = HandProp.fromRaw(obj.optString("hand_prop", "NONE"))
+        val shotType = ShotType.fromRaw(obj.optString("shot_type", "AUTO"))
+        val secondaryRoleRaw = obj.optString("secondary_actor_role", "").trim()
+        val secondaryActorRole = if (secondaryRoleRaw.isNotEmpty()) ActorRole.fromRaw(secondaryRoleRaw) else null
+        val expression = ActorExpression.fromRaw(obj.optString("expression", "HAPPY_TALK"))
+        val headgear = ActorHeadgear.fromRaw(obj.optString("headgear", "NONE"))
+        val metaphorVisual = MetaphorVisual.fromRaw(obj.optString("metaphor_visual", "NONE"))
+        val topicPillLabel = obj.optString("topic_pill", "").trim()
+
         return SceneScript(
             sceneId = sceneId,
             tagalogNarration = narration,
@@ -123,7 +142,16 @@ object JsonSanitizer {
             hudLabel = hudLabel,
             hudFromValue = hudFrom,
             hudToValue = hudTo,
-            checklistItems = checklistItems
+            checklistItems = checklistItems,
+            shotFraming = shotFraming,
+            characterPose = characterPose,
+            handProp = handProp,
+            shotType = shotType,
+            secondaryActorRole = secondaryActorRole,
+            expression = expression,
+            headgear = headgear,
+            metaphorVisual = metaphorVisual,
+            topicPillLabel = topicPillLabel
         )
     }
 }

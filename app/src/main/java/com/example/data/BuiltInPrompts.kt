@@ -2,6 +2,7 @@ package com.example.data
 
 import com.example.model.AnimationStyle
 import com.example.model.PromptTemplate
+import com.example.model.PronunciationEntry
 
 object BuiltInPrompts {
 
@@ -54,6 +55,20 @@ Mga Panuntunan sa Kuwento:
         MONEY_LIFE_PARABLE
     )
 
+    val DEFAULT_PRONUNCIATION_DICTIONARY: List<PronunciationEntry> = listOf(
+        PronunciationEntry("Nike", "Nayk"),
+        PronunciationEntry("WiFi", "Way-Fay"),
+        PronunciationEntry("₱", "piso"),
+        PronunciationEntry("%", "porsyento"),
+        PronunciationEntry("GCash", "ji-kash"),
+        PronunciationEntry("OFW", "oh ef double-u"),
+        PronunciationEntry("BPO", "bi pi oh"),
+        PronunciationEntry("ATM", "ey ti em"),
+        PronunciationEntry("ROI", "ar oh ay"),
+        PronunciationEntry("YouTube", "yutyub"),
+        PronunciationEntry("TikTok", "tik-tok")
+    )
+
     fun getDefaultById(id: String): PromptTemplate? = DEFAULT_TEMPLATES.firstOrNull { it.id == id }
 
     fun lockedSchemaInstructions(durationSeconds: Int, style: AnimationStyle): String {
@@ -62,18 +77,26 @@ Mga Panuntunan sa Kuwento:
             durationSeconds <= 65 -> 13
             else -> 19
         }
-        val hudGuidance = if (style == AnimationStyle.TECH_EXPLAINER) {
-            "IMPORTANT FOR ${style.displayName}: Populate status_pill, callout_banner, and hud_widget (with hud_label, hud_from_value, hud_to_value, and checklist_items when using ANIMATED_CHECKLIST) on EVERY scene."
-        } else {
-            "OPTIONAL MOTION-GRAPHICS OVERLAYS: You may also include the optional HUD fields below on key emphasis scenes."
+        val hudGuidance = when (style) {
+            AnimationStyle.TECH_EXPLAINER, AnimationStyle.CROSS_SECTION ->
+                "IMPORTANT FOR ${style.displayName}: Populate status_pill, callout_banner, and hud_widget (with hud_label, hud_from_value, hud_to_value, and checklist_items when using ANIMATED_CHECKLIST) on EVERY scene."
+            AnimationStyle.VIRAL_2D_EXPLAINER ->
+                "IMPORTANT FOR ${style.displayName}: Populate expression, headgear (when fitting), metaphor_visual, and topic_pill (short 1-3 word uppercase badge like \"SCIENCE FACT\", \"BAKIT NANGYAYARI\", \"TIP #1\") on EVERY scene!"
+            else ->
+                "OPTIONAL MOTION-GRAPHICS OVERLAYS: You may also include the optional HUD fields below on key emphasis scenes."
         }
         return """
 Return ONLY a valid JSON array containing exactly $sceneCount scene objects (each representing 3–5 seconds of narration for a ~${durationSeconds}s vertical 9:16 video in "${style.displayName}" style).
 Do NOT output any prose, explanation, markdown fences, or <think> tags outside the JSON array.
 
+STRICT NATURAL TAGALOG LANGUAGE RULES (MANDATORY):
+- Write grammatically correct, everyday conversational Tagalog/Taglish that sounds like a real Filipino storyteller—never stiff or robotic Google Translate phrasing.
+- FORBIDDEN: Do NOT translate English idioms word-for-word (e.g., NEVER translate "don't put all your eggs in one basket" literally as "lobo", "manok", or "itlog sa isang basket"; express the actual Filipino meaning naturally, like "huwag umasa sa iisang kita lang").
+- Use proper Filipino grammar ("ng" vs "nang", "rito/dito", natural "po/naman/kasi/talaga/kaya" cadence) and keep every line clean, punchy, and 100% free of gibberish or stage directions.
+
 Every object in the JSON array MUST have ALL 7 required keys with exact names:
 - "scene_id": integer starting at 1
-- "tagalog_narration": string (natural conversational Tagalog, 8 to 15 words, no stage directions)
+- "tagalog_narration": string (natural conversational Tagalog/Taglish, 8 to 15 words, no stage directions or speaker labels)
 - "background_prompt": string (vivid English visual scene description matching "${style.displayName}", no text, no people)
 - "camera_motion": strictly one of ["WHIP_PAN_LEFT", "WHIP_PAN_RIGHT", "ZOOM_IN", "ZOOM_OUT", "SHAKE", "STATIC"]
 - "actor_role": strictly one of ["NARRATOR", "RICH_MAN", "POOR_MAN", "CHICKEN_MENTOR", "HERO"]
@@ -81,7 +104,16 @@ Every object in the JSON array MUST have ALL 7 required keys with exact names:
 - "world_fx": strictly one of ["NONE", "COIN_RAIN", "FIRE_SPARKS", "GIANT_HAND_GRAB", "FLOATING_HOUSES", "CHALKBOARD_DRAW", "EGG_CRACK"]
 
 $hudGuidance
-Optional motion-graphics keys per scene object:
+Optional cinematic & motion-graphics keys per scene object:
+- "shot_framing": one of ["WIDE_FULL_BODY", "MEDIUM_WAIST_UP", "CLOSE_UP_FACE", "RULE_OF_THIRDS_LEFT", "RULE_OF_THIRDS_RIGHT"] (vary shots across scenes!)
+- "character_pose": one of ["WALK_ACROSS_LEFT_TO_RIGHT", "THREE_QUARTER_EXPLAIN", "SIT_SLUMPED", "SHOCK_AIRBORNE_RECOIL", "POINT_AND_GESTURE", "CELEBRATE_JUMP", "TWO_CHARACTER_CONVERSATION"]
+- "hand_prop": one of ["NONE", "POINTER_STICK", "MONEY_BAG", "PHONE_SCREEN", "MAGNIFYING_GLASS", "LIGHTBULB"]
+- "shot_type": one of ["WIDE_STAGE", "MEDIUM_WAIST_UP", "CLOSE_UP_REACTION", "TRACKING_FOLLOW", "WHIP_CUT"]
+- "secondary_actor_role": optional partner role for TWO_CHARACTER_CONVERSATION (["HERO", "CHICKEN_MENTOR", "RICH_MAN", "POOR_MAN", "NARRATOR"])
+- "expression": one of ["HAPPY_TALK", "ANGRY_EVIL", "PANIC_SWEAT_FIRE", "SHOCKED_WIDE_EYES", "TONGUE_STING", "SLEEPING_ZZZ"]
+- "headgear": one of ["NONE", "CHEF_HAT", "HARD_HAT", "CROWN"]
+- "metaphor_visual": one of ["NONE", "CHOMP_CHAIN", "TISSUE_CROSS_SECTION", "TIME_LAPSE_CLOCK", "BOILING_POT_PROCESS", "SUNBURST_SPOTLIGHT"]
+- "topic_pill": short 1–3 word uppercase badge text (e.g. "PROTEIN CHAIN", "ALERT!", "PRO TIP")
 - "status_pill": one of ["NONE", "GOAL", "PROBLEM", "FIX", "SECRET"]
 - "callout_banner": short 1–3 word punchy Tagalog/Taglish emphasis text (e.g. "MALAKING MALI!", "90% LAKAS", "ITO ANG SIKRETO")
 - "hud_widget": one of ["NONE", "PROGRESS_GAUGE", "WAVEFORM_GRAPH", "ANIMATED_CHECKLIST"]

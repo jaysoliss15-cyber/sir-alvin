@@ -84,10 +84,27 @@ class ElevenLabsClient(
         keyPool: List<ElevenLabsKeyEntry>,
         allowOfflineFallback: Boolean,
         tempCacheDir: File,
+        customDictionary: List<com.example.model.PronunciationEntry> = emptyList(),
+        previousText: String? = null,
+        nextText: String? = null,
         onKeyStatusUpdate: suspend (ElevenLabsKeyEntry) -> Unit
     ): TtsSynthesisOutput = withContext(Dispatchers.IO) {
-        val normalizedText = TagalogPhoneticNormalizer.normalize(rawTagalogNarration)
-        val displayWords = rawTagalogNarration.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val cleanTagalog = com.example.llm.TagalogNarrationValidator.cleanForTts(rawTagalogNarration)
+        com.example.llm.TagalogNarrationValidator.validateOrThrow(cleanTagalog)
+        val normalizedText = TagalogPhoneticNormalizer.normalize(cleanTagalog, customDictionary)
+        val normPrev = previousText?.takeIf { it.isNotBlank() }?.let {
+            TagalogPhoneticNormalizer.normalize(
+                com.example.llm.TagalogNarrationValidator.cleanForTts(it),
+                customDictionary
+            )
+        }
+        val normNext = nextText?.takeIf { it.isNotBlank() }?.let {
+            TagalogPhoneticNormalizer.normalize(
+                com.example.llm.TagalogNarrationValidator.cleanForTts(it),
+                customDictionary
+            )
+        }
+        val displayWords = cleanTagalog.split(Regex("\\s+")).filter { it.isNotEmpty() }
 
         if (keyPool.isEmpty()) {
             if (allowOfflineFallback) {
@@ -120,6 +137,8 @@ class ElevenLabsClient(
                 val payload = JSONObject().apply {
                     put("text", normalizedText)
                     put("model_id", "eleven_multilingual_v2")
+                    if (!normPrev.isNullOrBlank()) put("previous_text", normPrev)
+                    if (!normNext.isNullOrBlank()) put("next_text", normNext)
                     put("voice_settings", JSONObject().apply {
                         put("stability", 0.45)
                         put("similarity_boost", 0.78)

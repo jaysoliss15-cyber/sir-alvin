@@ -96,6 +96,147 @@ enum class HudWidget {
     }
 }
 
+enum class ProductionMode(
+    val title: String,
+    val subtitle: String,
+    val badge: String
+) {
+    FULL_AI_STORY(
+        title = "Full AI Story",
+        subtitle = "Script, AI diorama, animated puppets & voiceover",
+        badge = "AI STORY"
+    ),
+    CLIP_AUTO_EDITOR(
+        title = "Clip + Auto-HUD",
+        subtitle = "Import .mp4/.jpg/.png clips + auto voiceover, pills & HUD",
+        badge = "AUTO-HUD"
+    ),
+    CROSS_SECTION_EXPLAINER(
+        title = "2D Cutaway",
+        subtitle = "Kurzgesagt cross-sections, pipes, fans & energy flow",
+        badge = "CUTAWAY"
+    );
+
+    companion object {
+        fun fromRaw(raw: String?): ProductionMode {
+            val clean = raw?.trim()?.uppercase() ?: return FULL_AI_STORY
+            return entries.firstOrNull { it.name == clean } ?: FULL_AI_STORY
+        }
+    }
+}
+
+enum class ShotFraming {
+    AUTO,
+    WIDE_FULL_BODY,
+    MEDIUM_WAIST_UP,
+    CLOSE_UP_FACE,
+    RULE_OF_THIRDS_LEFT,
+    RULE_OF_THIRDS_RIGHT;
+
+    companion object {
+        fun fromRaw(raw: String?): ShotFraming {
+            val clean = raw?.trim()?.uppercase() ?: return AUTO
+            return entries.firstOrNull { it.name == clean } ?: AUTO
+        }
+    }
+}
+
+enum class CharacterPose {
+    AUTO,
+    WALK_ACROSS_LEFT_TO_RIGHT,
+    THREE_QUARTER_EXPLAIN,
+    SIT_SLUMPED,
+    SHOCK_AIRBORNE_RECOIL,
+    POINT_AND_GESTURE,
+    CELEBRATE_JUMP,
+    TWO_CHARACTER_CONVERSATION;
+
+    companion object {
+        fun fromRaw(raw: String?): CharacterPose {
+            val clean = raw?.trim()?.uppercase() ?: return AUTO
+            return entries.firstOrNull { it.name == clean } ?: AUTO
+        }
+    }
+}
+
+enum class HandProp {
+    NONE,
+    POINTER_STICK,
+    MONEY_BAG,
+    PHONE_SCREEN,
+    MAGNIFYING_GLASS,
+    LIGHTBULB;
+
+    companion object {
+        fun fromRaw(raw: String?): HandProp {
+            val clean = raw?.trim()?.uppercase() ?: return NONE
+            return entries.firstOrNull { it.name == clean } ?: NONE
+        }
+    }
+}
+
+enum class ShotType {
+    AUTO,
+    WIDE_STAGE,
+    MEDIUM_WAIST_UP,
+    CLOSE_UP_REACTION,
+    TRACKING_FOLLOW,
+    WHIP_CUT;
+
+    companion object {
+        fun fromRaw(raw: String?): ShotType {
+            val clean = raw?.trim()?.uppercase() ?: return AUTO
+            return entries.firstOrNull { it.name == clean } ?: AUTO
+        }
+    }
+}
+
+enum class ActorExpression {
+    HAPPY_TALK,
+    ANGRY_EVIL,
+    PANIC_SWEAT_FIRE,
+    SHOCKED_WIDE_EYES,
+    TONGUE_STING,
+    SLEEPING_ZZZ;
+
+    companion object {
+        fun fromRaw(raw: String?): ActorExpression {
+            val clean = raw?.trim()?.uppercase() ?: return HAPPY_TALK
+            return entries.firstOrNull { it.name == clean } ?: HAPPY_TALK
+        }
+    }
+}
+
+enum class ActorHeadgear {
+    NONE,
+    CHEF_HAT,
+    HARD_HAT,
+    CROWN;
+
+    companion object {
+        fun fromRaw(raw: String?): ActorHeadgear {
+            val clean = raw?.trim()?.uppercase() ?: return NONE
+            return entries.firstOrNull { it.name == clean } ?: NONE
+        }
+    }
+}
+
+enum class MetaphorVisual {
+    NONE,
+    CHOMP_CHAIN,
+    TISSUE_CROSS_SECTION,
+    TIME_LAPSE_CLOCK,
+    BOILING_POT_PROCESS,
+    SUNBURST_SPOTLIGHT;
+
+    companion object {
+        fun fromRaw(raw: String?): MetaphorVisual {
+            val clean = raw?.trim()?.uppercase() ?: return NONE
+            return entries.firstOrNull { it.name == clean } ?: NONE
+        }
+    }
+}
+
 data class SceneScript(
     val sceneId: Int,
     val tagalogNarration: String,
@@ -110,7 +251,16 @@ data class SceneScript(
     val hudLabel: String = "",
     val hudFromValue: Int = 0,
     val hudToValue: Int = 100,
-    val checklistItems: List<String> = emptyList()
+    val checklistItems: List<String> = emptyList(),
+    val shotFraming: ShotFraming = ShotFraming.AUTO,
+    val characterPose: CharacterPose = CharacterPose.AUTO,
+    val handProp: HandProp = HandProp.NONE,
+    val shotType: ShotType = ShotType.AUTO,
+    val secondaryActorRole: ActorRole? = null,
+    val expression: ActorExpression = ActorExpression.HAPPY_TALK,
+    val headgear: ActorHeadgear = ActorHeadgear.NONE,
+    val metaphorVisual: MetaphorVisual = MetaphorVisual.NONE,
+    val topicPillLabel: String = ""
 )
 
 data class WordTiming(
@@ -137,6 +287,17 @@ data class PromptTemplate(
     val isBuiltIn: Boolean = false
 )
 
+data class PronunciationEntry(
+    val original: String,
+    val spoken: String
+)
+
+data class ImportedClipItem(
+    val uriString: String,
+    val displayName: String,
+    val isVideo: Boolean
+)
+
 data class ElevenLabsKeyEntry(
     val key: String,
     val remainingChars: Int? = null,
@@ -160,7 +321,12 @@ data class StudioSettings(
     val customModel: String = "",
     val customApiKey: String = "",
     val aiHordeKey: String = "0000000000",
-    val allowOfflineTtsFallback: Boolean = true
+    val allowOfflineTtsFallback: Boolean = true,
+    val customSpritePaths: Map<String, String> = emptyMap(),
+    val spriteStickerOutline: Boolean = true,
+    val customBgmPath: String = "",
+    val customBgmName: String = "",
+    val pronunciationDictionary: List<PronunciationEntry> = emptyList()
 ) {
     val activeTemplate: PromptTemplate?
         get() = promptTemplates.firstOrNull { it.id == activePromptId } ?: promptTemplates.firstOrNull()

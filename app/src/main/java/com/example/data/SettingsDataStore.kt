@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.model.ElevenLabsKeyEntry
 import com.example.model.PromptTemplate
+import com.example.model.PronunciationEntry
 import com.example.model.StudioSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -35,6 +36,11 @@ class SettingsDataStore(private val context: Context) {
         val CUSTOM_API_KEY = stringPreferencesKey("custom_api_key")
         val AI_HORDE_KEY = stringPreferencesKey("ai_horde_key")
         val ALLOW_OFFLINE_TTS_FALLBACK = booleanPreferencesKey("allow_offline_tts_fallback")
+        val CUSTOM_SPRITE_PATHS_JSON = stringPreferencesKey("custom_sprite_paths_json")
+        val SPRITE_STICKER_OUTLINE = booleanPreferencesKey("sprite_sticker_outline")
+        val CUSTOM_BGM_PATH = stringPreferencesKey("custom_bgm_path")
+        val CUSTOM_BGM_NAME = stringPreferencesKey("custom_bgm_name")
+        val PRONUNCIATION_DICT_JSON = stringPreferencesKey("pronunciation_dict_json")
     }
 
     val settingsFlow: Flow<StudioSettings> = context.toonForgeDataStore.data.map { prefs ->
@@ -55,7 +61,12 @@ class SettingsDataStore(private val context: Context) {
             customModel = prefs[Keys.CUSTOM_MODEL] ?: "",
             customApiKey = prefs[Keys.CUSTOM_API_KEY] ?: "",
             aiHordeKey = prefs[Keys.AI_HORDE_KEY]?.ifBlank { null } ?: "0000000000",
-            allowOfflineTtsFallback = prefs[Keys.ALLOW_OFFLINE_TTS_FALLBACK] ?: true
+            allowOfflineTtsFallback = prefs[Keys.ALLOW_OFFLINE_TTS_FALLBACK] ?: true,
+            customSpritePaths = parseSpritePaths(prefs[Keys.CUSTOM_SPRITE_PATHS_JSON]),
+            spriteStickerOutline = prefs[Keys.SPRITE_STICKER_OUTLINE] ?: true,
+            customBgmPath = prefs[Keys.CUSTOM_BGM_PATH] ?: "",
+            customBgmName = prefs[Keys.CUSTOM_BGM_NAME] ?: "",
+            pronunciationDictionary = parsePronunciationDict(prefs[Keys.PRONUNCIATION_DICT_JSON])
         )
     }
 
@@ -187,6 +198,63 @@ class SettingsDataStore(private val context: Context) {
         }
     }
 
+    suspend fun setCustomSpritePath(roleName: String, path: String?) {
+        context.toonForgeDataStore.edit { prefs ->
+            val map = parseSpritePaths(prefs[Keys.CUSTOM_SPRITE_PATHS_JSON]).toMutableMap()
+            if (path.isNullOrBlank()) {
+                map.remove(roleName)
+            } else {
+                map[roleName] = path
+            }
+            prefs[Keys.CUSTOM_SPRITE_PATHS_JSON] = serializeSpritePaths(map)
+        }
+    }
+
+    suspend fun setSpriteStickerOutline(enabled: Boolean) {
+        context.toonForgeDataStore.edit { prefs ->
+            prefs[Keys.SPRITE_STICKER_OUTLINE] = enabled
+        }
+    }
+
+    suspend fun setCustomBgm(path: String, displayName: String) {
+        context.toonForgeDataStore.edit { prefs ->
+            prefs[Keys.CUSTOM_BGM_PATH] = path
+            prefs[Keys.CUSTOM_BGM_NAME] = displayName
+        }
+    }
+
+    suspend fun upsertPronunciationEntry(original: String, spoken: String) {
+        val cleanOrig = original.trim()
+        val cleanSpoken = spoken.trim()
+        if (cleanOrig.isEmpty() || cleanSpoken.isEmpty()) return
+        context.toonForgeDataStore.edit { prefs ->
+            val list = parsePronunciationDict(prefs[Keys.PRONUNCIATION_DICT_JSON]).toMutableList()
+            val idx = list.indexOfFirst { it.original.equals(cleanOrig, ignoreCase = true) }
+            val entry = PronunciationEntry(cleanOrig, cleanSpoken)
+            if (idx >= 0) {
+                list[idx] = entry
+            } else {
+                list.add(0, entry)
+            }
+            prefs[Keys.PRONUNCIATION_DICT_JSON] = serializePronunciationDict(list)
+        }
+    }
+
+    suspend fun deletePronunciationEntry(original: String) {
+        context.toonForgeDataStore.edit { prefs ->
+            val list = parsePronunciationDict(prefs[Keys.PRONUNCIATION_DICT_JSON])
+                .filterNot { it.original.equals(original, ignoreCase = true) }
+            prefs[Keys.PRONUNCIATION_DICT_JSON] = serializePronunciationDict(list)
+        }
+    }
+
+    suspend fun resetPronunciationDictionary() {
+        context.toonForgeDataStore.edit { prefs ->
+            prefs[Keys.PRONUNCIATION_DICT_JSON] =
+                serializePronunciationDict(BuiltInPrompts.DEFAULT_PRONUNCIATION_DICTIONARY)
+        }
+    }
+
     private fun parseTemplates(json: String?): List<PromptTemplate> {
         if (json.isNullOrBlank()) return BuiltInPrompts.DEFAULT_TEMPLATES
         return try {
@@ -264,6 +332,60 @@ class SettingsDataStore(private val context: Context) {
                     if (entry.tier != null) put("tier", entry.tier)
                     if (entry.lastError != null) put("lastError", entry.lastError)
                     put("lastCheckedAtMs", entry.lastCheckedAtMs)
+                }
+            )
+        }
+        return arr.toString()
+    }
+
+    private fun parseSpritePaths(json: String?): Map<String, String> {
+        if (json.isNullOrBlank()) return emptyMap()
+        return try {
+            val obj = JSONObject(json)
+            buildMap {
+                obj.keys().forEach { key ->
+                    val path = obj.optString(key, "")
+                    if (path.isNotBlank()) put(key, path)
+                }
+            }
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    private fun serializeSpritePaths(map: Map<String, String>): String {
+        val obj = JSONObject()
+        map.forEach { (k, v) -> obj.put(k, v) }
+        return obj.toString()
+    }
+
+    private fun parsePronunciationDict(json: String?): List<PronunciationEntry> {
+        if (json == null) return BuiltInPrompts.DEFAULT_PRONUNCIATION_DICTIONARY
+        if (json.isBlank()) return emptyList()
+        return try {
+            val arr = JSONArray(json)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val orig = obj.optString("original", "").trim()
+                    val spoken = obj.optString("spoken", "").trim()
+                    if (orig.isNotEmpty() && spoken.isNotEmpty()) {
+                        add(PronunciationEntry(orig, spoken))
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            BuiltInPrompts.DEFAULT_PRONUNCIATION_DICTIONARY
+        }
+    }
+
+    private fun serializePronunciationDict(list: List<PronunciationEntry>): String {
+        val arr = JSONArray()
+        list.forEach { entry ->
+            arr.put(
+                JSONObject().apply {
+                    put("original", entry.original)
+                    put("spoken", entry.spoken)
                 }
             )
         }

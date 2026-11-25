@@ -63,6 +63,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val previewCustomSprites by viewModel.previewCustomSprites.collectAsStateWithLifecycle()
     val isCheckingCredits by viewModel.isCheckingCredits.collectAsStateWithLifecycle()
 
     var newElevenKey by remember { mutableStateOf("") }
@@ -416,6 +417,31 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // 3. CUSTOM PNG CHARACTER SPRITE MANAGER
+            CharacterSpriteManagerCard(
+                customSpritePaths = settings.customSpritePaths,
+                previewSprites = previewCustomSprites,
+                stickerOutlineEnabled = settings.spriteStickerOutline,
+                onImportSprite = { role, uri -> viewModel.importCharacterSprite(role, uri) },
+                onRemoveSprite = { role -> viewModel.removeCharacterSprite(role) },
+                onToggleStickerOutline = { viewModel.setSpriteStickerOutline(it) }
+            )
+
+            // 4. CUSTOM BGM AUDIO STUDIO
+            CustomBgmCard(
+                customBgmName = settings.customBgmName,
+                onImportBgm = { uri -> viewModel.importCustomBgm(uri) },
+                onClearBgm = { viewModel.clearCustomBgm() }
+            )
+
+            // 5. EDITABLE TAGALOG PRONUNCIATION DICTIONARY
+            PronunciationDictionaryCard(
+                entries = settings.pronunciationDictionary,
+                onUpsertEntry = { orig, spoken -> viewModel.upsertPronunciation(orig, spoken) },
+                onDeleteEntry = { orig -> viewModel.deletePronunciation(orig) },
+                onResetDefaults = { viewModel.resetPronunciationDictionary() }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
         }
