@@ -342,7 +342,7 @@ object ProceduralPuppetEngine {
     ) {
         val pal = paletteForRole(role, style)
         val isChibi = style == AnimationStyle.CHIBI_STORYTIME
-        val isBorderless = style == AnimationStyle.FLAT_VECTOR && !silhouetteOutlineOnly
+        val isBorderless = (style == AnimationStyle.FLAT_VECTOR || style == AnimationStyle.TECH_EXPLAINER) && !silhouetteOutlineOnly
 
         val strokeW = when {
             silhouetteOutlineOnly -> 20f * u // yields ~10px thick outer cutout border around whole rig
@@ -362,7 +362,7 @@ object ProceduralPuppetEngine {
                 }
             }
             return Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                if (c2 != null && style == AnimationStyle.FLAT_VECTOR) {
+                if (c2 != null && (style == AnimationStyle.FLAT_VECTOR || style == AnimationStyle.TECH_EXPLAINER)) {
                     shader = LinearGradient(rootX, yTop, rootX, yBot, c1, c2, Shader.TileMode.CLAMP)
                 } else {
                     color = c1
@@ -380,7 +380,7 @@ object ProceduralPuppetEngine {
         }
 
         val rimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xAAFF4D4D.toInt()
+            color = if (style == AnimationStyle.TECH_EXPLAINER) 0x9900E5FF.toInt() else 0xAAFF4D4D.toInt()
             setStyle(Paint.Style.STROKE)
             strokeWidth = 5f * u
             strokeCap = Paint.Cap.ROUND
@@ -459,7 +459,7 @@ object ProceduralPuppetEngine {
 
         if (!silhouetteOutlineOnly) {
             drawRoleTorsoDetails(canvas, torsoRect, rootX, u, role, pal, style)
-            if (style == AnimationStyle.DARK_SUSPENSE) {
+            if (style == AnimationStyle.DARK_SUSPENSE || style == AnimationStyle.TECH_EXPLAINER) {
                 canvas.drawArc(torsoRect, -65f, 110f, false, rimPaint)
             }
         }
@@ -509,7 +509,7 @@ object ProceduralPuppetEngine {
                 outlinePaint = outlinePaint
             )
             drawRoleHeadgear(canvas, rootX, headRect, u, role, pal, outlinePaint, style)
-            if (style == AnimationStyle.DARK_SUSPENSE) {
+            if (style == AnimationStyle.DARK_SUSPENSE || style == AnimationStyle.TECH_EXPLAINER) {
                 canvas.drawArc(headRect, -55f, 100f, false, rimPaint)
             }
         } else {
@@ -1051,6 +1051,28 @@ object ProceduralPuppetEngine {
                 }
             }
         }
+    }
+
+    fun drawMotionGraphicsOverlay(
+        canvas: Canvas,
+        stageW: Float,
+        stageH: Float,
+        scene: com.example.model.SceneScript,
+        style: AnimationStyle,
+        sceneElapsedSec: Float,
+        sceneDurationSec: Float,
+        globalTimeSec: Float
+    ) {
+        MotionGraphicsOverlayRenderer.drawOverlays(
+            canvas = canvas,
+            w = stageW,
+            h = stageH,
+            scene = scene,
+            style = style,
+            sceneElapsedSec = sceneElapsedSec,
+            sceneDurationSec = sceneDurationSec,
+            globalTimeSec = globalTimeSec
+        )
     }
 
     private fun darkenColor(color: Int, factor: Float): Int {

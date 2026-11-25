@@ -16,9 +16,11 @@ import com.example.model.ActorRole
 import com.example.model.AnimationStyle
 import com.example.model.CameraMotion
 import com.example.model.GenerationProgress
+import com.example.model.HudWidget
 import com.example.model.PipelineStep
 import com.example.model.SavedVideoItem
 import com.example.model.SceneScript
+import com.example.model.StatusPill
 import com.example.model.StudioSettings
 import com.example.model.TimelineScene
 import com.example.model.WordTiming
@@ -89,6 +91,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _demoWorldFx = MutableStateFlow(WorldFx.COIN_RAIN)
     val demoWorldFx: StateFlow<WorldFx> = _demoWorldFx.asStateFlow()
 
+    private val _demoStatusPill = MutableStateFlow(StatusPill.NONE)
+    val demoStatusPill: StateFlow<StatusPill> = _demoStatusPill.asStateFlow()
+
+    private val _demoHudWidget = MutableStateFlow(HudWidget.NONE)
+    val demoHudWidget: StateFlow<HudWidget> = _demoHudWidget.asStateFlow()
+
     val previewBackdropCache = mutableMapOf<Int, Bitmap>()
 
     init {
@@ -108,7 +116,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val maxDur = if (scenes.isNotEmpty()) {
                         scenes.last().endMs.coerceAtLeast(1000.0)
                     } else {
-                        4000.0
+                        4200.0
                     }
                     val next = _previewTimeMs.value + 33.0
                     _previewTimeMs.value = if (next >= maxDur) 0.0 else next
@@ -156,16 +164,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _demoWorldFx.value = fx
     }
 
+    fun setDemoStatusPill(pill: StatusPill) {
+        _demoStatusPill.value = pill
+    }
+
+    fun setDemoHudWidget(widget: HudWidget) {
+        _demoHudWidget.value = widget
+    }
+
     fun buildDemoPreviewScenes(): List<TimelineScene> {
         val role = _demoActorRole.value
         val action = _demoActorAction.value
         val fx = _demoWorldFx.value
-        val narration = "Alam mo ba kung bakit laging ubos ang sahod mo?"
+        val style = _selectedStyle.value
+        val pill = if (style == AnimationStyle.TECH_EXPLAINER && _demoStatusPill.value == StatusPill.NONE) {
+            StatusPill.GOAL
+        } else {
+            _demoStatusPill.value
+        }
+        val widget = if (style == AnimationStyle.TECH_EXPLAINER && _demoHudWidget.value == HudWidget.NONE) {
+            HudWidget.PROGRESS_GAUGE
+        } else {
+            _demoHudWidget.value
+        }
+        val callout = if (style == AnimationStyle.TECH_EXPLAINER || pill != StatusPill.NONE || widget != HudWidget.NONE) {
+            "90% LAKAS"
+        } else ""
+        val narration = "Alam mo ba kung bakit ubos ang 90% ng sahod mo?"
         val words = narration.split(" ")
         var cursor = 120.0
         val timings = words.map { w ->
-            val wt = WordTiming(w, cursor, cursor + 380.0)
-            cursor += 400.0
+            val wt = WordTiming(w, cursor, cursor + 340.0)
+            cursor += 350.0
             wt
         }
         return listOf(
@@ -177,10 +207,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     cameraMotion = CameraMotion.ZOOM_IN,
                     actorRole = role,
                     actorAction = action,
-                    worldFx = fx
+                    worldFx = fx,
+                    statusPill = pill,
+                    calloutBanner = callout,
+                    hudWidget = widget,
+                    hudLabel = "IPON POWER",
+                    hudFromValue = 18,
+                    hudToValue = 88,
+                    checklistItems = listOf(
+                        "Iwasan ang impulse spend",
+                        "Magtabi agad ng 20%",
+                        "I-invest sa emergency fund"
+                    )
                 ),
                 startMs = 0.0,
-                endMs = 4000.0,
+                endMs = 4200.0,
                 wordTimings = timings,
                 backdropBitmap = null
             )

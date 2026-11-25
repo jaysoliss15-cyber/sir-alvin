@@ -55,6 +55,15 @@ enum class AnimationStyle(
         backdropPromptSuffix = "colorful vibrant anime background art, soft pastel sky highlights, cozy detailed environment, Makoto Shinkai inspired lighting, no text, no people, empty stage, centered composition",
         usesNetworkArt = true,
         captionStyleLabel = "Pastel-outlined bubbly captions"
+    ),
+    TECH_EXPLAINER(
+        displayName = "Viral HUD & Motion Explainer",
+        badge = "HUD EXPLAINER",
+        subtitle = "Clean vector diagrams, dynamic zoom/pan, animated HUD overlays",
+        accentHex = 0xFF00E5FF,
+        backdropPromptSuffix = "clean dark tech infographic vector stage, subtle geometric grid, glowing cyan and emerald depth accents, no text, no people, empty stage, centered composition",
+        usesNetworkArt = true,
+        captionStyleLabel = "Kinetic spring pop + keyword glow"
     );
 
     val accentColor: Color

@@ -62,11 +62,16 @@ Mga Panuntunan sa Kuwento:
             durationSeconds <= 65 -> 13
             else -> 19
         }
+        val hudGuidance = if (style == AnimationStyle.TECH_EXPLAINER) {
+            "IMPORTANT FOR ${style.displayName}: Populate status_pill, callout_banner, and hud_widget (with hud_label, hud_from_value, hud_to_value, and checklist_items when using ANIMATED_CHECKLIST) on EVERY scene."
+        } else {
+            "OPTIONAL MOTION-GRAPHICS OVERLAYS: You may also include the optional HUD fields below on key emphasis scenes."
+        }
         return """
 Return ONLY a valid JSON array containing exactly $sceneCount scene objects (each representing 3–5 seconds of narration for a ~${durationSeconds}s vertical 9:16 video in "${style.displayName}" style).
 Do NOT output any prose, explanation, markdown fences, or <think> tags outside the JSON array.
 
-Every object in the JSON array MUST have ALL 7 keys with exact names:
+Every object in the JSON array MUST have ALL 7 required keys with exact names:
 - "scene_id": integer starting at 1
 - "tagalog_narration": string (natural conversational Tagalog, 8 to 15 words, no stage directions)
 - "background_prompt": string (vivid English visual scene description matching "${style.displayName}", no text, no people)
@@ -74,6 +79,16 @@ Every object in the JSON array MUST have ALL 7 keys with exact names:
 - "actor_role": strictly one of ["NARRATOR", "RICH_MAN", "POOR_MAN", "CHICKEN_MENTOR", "HERO"]
 - "actor_action": strictly one of ["WALK_IN", "TALK_BOUNCE", "THUMBS_UP", "POINT_STICK", "SURPRISED_JUMP", "CRY_SHAKE"]
 - "world_fx": strictly one of ["NONE", "COIN_RAIN", "FIRE_SPARKS", "GIANT_HAND_GRAB", "FLOATING_HOUSES", "CHALKBOARD_DRAW", "EGG_CRACK"]
+
+$hudGuidance
+Optional motion-graphics keys per scene object:
+- "status_pill": one of ["NONE", "GOAL", "PROBLEM", "FIX", "SECRET"]
+- "callout_banner": short 1–3 word punchy Tagalog/Taglish emphasis text (e.g. "MALAKING MALI!", "90% LAKAS", "ITO ANG SIKRETO")
+- "hud_widget": one of ["NONE", "PROGRESS_GAUGE", "WAVEFORM_GRAPH", "ANIMATED_CHECKLIST"]
+- "hud_label": short uppercase metric title (e.g. "IPON RATE", "POWER OUTPUT", "RISK LEVEL")
+- "hud_from_value": integer 0..100
+- "hud_to_value": integer 0..100
+- "checklist_items": array of 2–4 short strings (only when hud_widget is "ANIMATED_CHECKLIST")
         """.trimIndent()
     }
 

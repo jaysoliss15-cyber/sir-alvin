@@ -67,6 +67,35 @@ enum class WorldFx {
     }
 }
 
+enum class StatusPill {
+    NONE,
+    GOAL,
+    PROBLEM,
+    FIX,
+    SECRET;
+
+    companion object {
+        fun fromRaw(raw: String?): StatusPill {
+            val clean = raw?.trim()?.uppercase() ?: return NONE
+            return entries.firstOrNull { it.name == clean } ?: NONE
+        }
+    }
+}
+
+enum class HudWidget {
+    NONE,
+    PROGRESS_GAUGE,
+    WAVEFORM_GRAPH,
+    ANIMATED_CHECKLIST;
+
+    companion object {
+        fun fromRaw(raw: String?): HudWidget {
+            val clean = raw?.trim()?.uppercase() ?: return NONE
+            return entries.firstOrNull { it.name == clean } ?: NONE
+        }
+    }
+}
+
 data class SceneScript(
     val sceneId: Int,
     val tagalogNarration: String,
@@ -74,7 +103,14 @@ data class SceneScript(
     val cameraMotion: CameraMotion,
     val actorRole: ActorRole,
     val actorAction: ActorAction,
-    val worldFx: WorldFx
+    val worldFx: WorldFx,
+    val statusPill: StatusPill = StatusPill.NONE,
+    val calloutBanner: String = "",
+    val hudWidget: HudWidget = HudWidget.NONE,
+    val hudLabel: String = "",
+    val hudFromValue: Int = 0,
+    val hudToValue: Int = 100,
+    val checklistItems: List<String> = emptyList()
 )
 
 data class WordTiming(

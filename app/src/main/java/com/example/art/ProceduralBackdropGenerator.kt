@@ -159,6 +159,7 @@ object ProceduralBackdropGenerator {
                 else -> intArrayOf(0xFF1D4C7A.toInt(), 0xFF569CD6.toInt(), 0xFFFFDCA4.toInt())
             }
             AnimationStyle.STICKMAN_WHITEBOARD -> intArrayOf(0xFFFAF6EE.toInt(), 0xFFF3ECE0.toInt(), 0xFFEDE4D4.toInt())
+            AnimationStyle.TECH_EXPLAINER -> intArrayOf(0xFF070B14.toInt(), 0xFF0E1729.toInt(), 0xFF12263F.toInt())
         }
 
         val skyPaint = Paint().apply {
@@ -171,6 +172,24 @@ object ProceduralBackdropGenerator {
         }
         canvas.drawRect(0f, 0f, w, h, skyPaint)
 
+        if (style == AnimationStyle.TECH_EXPLAINER) {
+            val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = 0x1A00E5FF
+                strokeWidth = (w * 0.002f).coerceAtLeast(1f)
+            }
+            val gridStep = w * 0.09f
+            var gx = gridStep
+            while (gx < w) {
+                canvas.drawLine(gx, 0f, gx, h * 0.67f, gridPaint)
+                gx += gridStep
+            }
+            var gy = gridStep
+            while (gy < h * 0.67f) {
+                canvas.drawLine(0f, gy, w, gy, gridPaint)
+                gy += gridStep
+            }
+        }
+
         // 2. Celestial body (sun / moon / anime glow)
         val orbX = w * (0.28f + rng.nextFloat() * 0.44f)
         val orbY = h * 0.20f
@@ -178,6 +197,7 @@ object ProceduralBackdropGenerator {
         val orbColor = when (style) {
             AnimationStyle.DARK_SUSPENSE -> 0xFFE63946.toInt()
             AnimationStyle.CHIBI_STORYTIME -> 0xFFFFE5EC.toInt()
+            AnimationStyle.TECH_EXPLAINER -> 0xFF00E5FF.toInt()
             else -> if (biome == SceneBiome.SPOOKY_NIGHT) 0xFFE2E8F0.toInt() else 0xFFFFE082.toInt()
         }
         val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -207,6 +227,7 @@ object ProceduralBackdropGenerator {
         val cloudColor = when (style) {
             AnimationStyle.DARK_SUSPENSE -> 0x332D1B36
             AnimationStyle.CHIBI_STORYTIME -> 0xBBFFF0F6.toInt()
+            AnimationStyle.TECH_EXPLAINER -> 0x2200E5FF
             else -> 0xCCFFFDF7.toInt()
         }
         drawPaperCloud(canvas, w * 0.18f, h * 0.14f, w * 0.22f, cloudColor, style == AnimationStyle.PAPER_DIORAMA)
@@ -216,6 +237,7 @@ object ProceduralBackdropGenerator {
         val farHillColor = when (style) {
             AnimationStyle.DARK_SUSPENSE -> 0xFF151221.toInt()
             AnimationStyle.CHIBI_STORYTIME -> 0xFF6247AA.toInt()
+            AnimationStyle.TECH_EXPLAINER -> 0xFF10253B.toInt()
             else -> if (biome == SceneBiome.OFFICE_WEALTH) 0xFF2B4162.toInt() else 0xFF2D6A4F.toInt()
         }
         drawHillLayer(
@@ -237,6 +259,7 @@ object ProceduralBackdropGenerator {
         val groundColors = when (style) {
             AnimationStyle.DARK_SUSPENSE -> intArrayOf(0xFF191B26.toInt(), 0xFF0A0B10.toInt())
             AnimationStyle.CHIBI_STORYTIME -> intArrayOf(0xFF52B788.toInt(), 0xFF2D6A4F.toInt())
+            AnimationStyle.TECH_EXPLAINER -> intArrayOf(0xFF101929.toInt(), 0xFF070B12.toInt())
             else -> when (biome) {
                 SceneBiome.URBAN_CITY -> intArrayOf(0xFF3A4154.toInt(), 0xFF202533.toInt())
                 SceneBiome.OFFICE_WEALTH -> intArrayOf(0xFF4E3B31.toInt(), 0xFF2A1E18.toInt())
@@ -280,7 +303,11 @@ object ProceduralBackdropGenerator {
 
         // Paper-cut rim highlight on stage ledge
         val ledgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = if (style == AnimationStyle.DARK_SUSPENSE) 0x44EF4444 else 0x55FFFFFF
+            color = when (style) {
+                AnimationStyle.DARK_SUSPENSE -> 0x44EF4444
+                AnimationStyle.TECH_EXPLAINER -> 0x6600E5FF
+                else -> 0x55FFFFFF
+            }
             strokeWidth = (w * 0.005f).coerceAtLeast(2f)
         }
         canvas.drawLine(0f, groundTopY, w, groundTopY, ledgePaint)
@@ -382,11 +409,13 @@ object ProceduralBackdropGenerator {
         val silhouetteColor = when (style) {
             AnimationStyle.DARK_SUSPENSE -> 0xFF0D0F18.toInt()
             AnimationStyle.CHIBI_STORYTIME -> 0xFF473170.toInt()
+            AnimationStyle.TECH_EXPLAINER -> 0xFF0D1D31.toInt()
             else -> 0xFF213148.toInt()
         }
         val litWindowColor = when (style) {
             AnimationStyle.DARK_SUSPENSE -> 0xFFFF595E.toInt()
             AnimationStyle.CHIBI_STORYTIME -> 0xFFFFE66D.toInt()
+            AnimationStyle.TECH_EXPLAINER -> 0xFF00E5FF.toInt()
             else -> 0xFFFFD166.toInt()
         }
 

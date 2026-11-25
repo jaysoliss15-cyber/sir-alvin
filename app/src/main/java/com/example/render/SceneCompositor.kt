@@ -76,6 +76,10 @@ object SceneCompositor {
         if (style == AnimationStyle.DARK_SUSPENSE && active.scene.cameraMotion == CameraMotion.STATIC) {
             camScale = 1.0f + 0.08f * sceneProgress
             camTx += sin(globalTimeSec * 29f) * (width * 0.003f)
+        } else if (style == AnimationStyle.TECH_EXPLAINER && active.scene.cameraMotion == CameraMotion.STATIC) {
+            val z = Easing.cubicBezier(0.25f, 0.1f, 0.25f, 1f, sceneProgress)
+            camScale = 1.0f + 0.10f * z
+            camTx += sin(sceneProgress * Math.PI.toFloat()) * (width * 0.025f)
         } else if (style == AnimationStyle.PAPER_DIORAMA && sceneElapsedSec < 0.28f && activeIndex > 0) {
             // Fast whip-pan entry between paper diorama scenes
             val t = 1f - Easing.cubicBezier(0.16f, 1f, 0.3f, 1f, sceneElapsedSec / 0.28f)
@@ -105,7 +109,7 @@ object SceneCompositor {
         }
 
         // 3. Determine active speech & lip-sync pulse from sample-accurate WordTimings
-        val activeWord = active.wordTimings.firstOrNull { currentMs in it.startMs..it.endMs }
+        val activeWord = active.wordTimings.firstOrNull { currentMs >= it.startMs && currentMs <= it.endMs }
         val isSpeaking = activeWord != null
         val speechPulse = if (activeWord != null) {
             val span = (activeWord.endMs - activeWord.startMs).coerceAtLeast(40.0)
@@ -149,7 +153,19 @@ object SceneCompositor {
             globalTimeSec = globalTimeSec
         )
 
-        // 7. Word-by-Word Karaoke Captions (always crisp & centered inside safe zone)
+        // 7. Kinetic Motion-Graphics HUD Overlay (Status Pill, Callout Banner, Telemetry Widgets)
+        MotionGraphicsOverlayRenderer.drawOverlays(
+            canvas = canvas,
+            w = width,
+            h = height,
+            scene = active.scene,
+            style = style,
+            sceneElapsedSec = sceneElapsedSec,
+            sceneDurationSec = (active.durationMs / 1000.0).toFloat().coerceAtLeast(1f),
+            globalTimeSec = globalTimeSec
+        )
+
+        // 8. Word-by-Word Kinetic Karaoke Captions
         WorldFxAndCaptionRenderer.drawKaraokeCaptions(
             canvas = canvas,
             w = width,

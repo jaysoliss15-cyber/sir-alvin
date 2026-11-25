@@ -5,6 +5,9 @@ import com.example.data.BuiltInPrompts
 import com.example.llm.JsonSanitizer
 import com.example.llm.MalformedSceneJsonException
 import com.example.model.AnimationStyle
+import com.example.model.HudWidget
+import com.example.model.SceneScript
+import com.example.model.StatusPill
 import com.example.model.WordTiming
 import com.example.tts.AudioPcmStitcher
 import com.example.tts.TagalogPhoneticNormalizer
@@ -75,6 +78,50 @@ class ToonForgeCoreTest {
         assertTrue(composed.contains("MANDATORY TECHNICAL JSON FORMAT (DO NOT OVERRIDE)"))
         assertTrue(composed.contains("\"tagalog_narration\""))
         assertTrue(composed.contains("\"world_fx\""))
+        assertTrue(composed.contains("\"status_pill\""))
+        assertTrue(composed.contains("\"hud_widget\""))
+    }
+
+    @Test
+    fun `techExplainerPresetAndHudModelsMaintainSafeDefaults`() {
+        assertEquals(6, AnimationStyle.entries.size)
+        assertTrue(AnimationStyle.TECH_EXPLAINER.usesNetworkArt)
+        assertEquals("HUD EXPLAINER", AnimationStyle.TECH_EXPLAINER.badge)
+        assertEquals("Viral HUD & Motion Explainer", AnimationStyle.TECH_EXPLAINER.displayName)
+
+        assertEquals(StatusPill.GOAL, StatusPill.fromRaw("goal"))
+        assertEquals(StatusPill.PROBLEM, StatusPill.fromRaw("PROBLEM"))
+        assertEquals(StatusPill.NONE, StatusPill.fromRaw("unknown_value"))
+        assertEquals(StatusPill.NONE, StatusPill.fromRaw(null))
+
+        assertEquals(HudWidget.PROGRESS_GAUGE, HudWidget.fromRaw("progress_gauge"))
+        assertEquals(HudWidget.WAVEFORM_GRAPH, HudWidget.fromRaw("WAVEFORM_GRAPH"))
+        assertEquals(HudWidget.ANIMATED_CHECKLIST, HudWidget.fromRaw("ANIMATED_CHECKLIST"))
+        assertEquals(HudWidget.NONE, HudWidget.fromRaw("invalid"))
+
+        val scene = SceneScript(
+            sceneId = 1,
+            tagalogNarration = "Test",
+            backgroundPrompt = "bg",
+            cameraMotion = com.example.model.CameraMotion.STATIC,
+            actorRole = com.example.model.ActorRole.HERO,
+            actorAction = com.example.model.ActorAction.TALK_BOUNCE,
+            worldFx = com.example.model.WorldFx.NONE
+        )
+        assertEquals(StatusPill.NONE, scene.statusPill)
+        assertEquals(HudWidget.NONE, scene.hudWidget)
+        assertEquals("", scene.calloutBanner)
+        assertEquals(0, scene.hudFromValue)
+        assertEquals(100, scene.hudToValue)
+        assertTrue(scene.checklistItems.isEmpty())
+
+        val techComposed = BuiltInPrompts.composeSystemPrompt("Base", 30, AnimationStyle.TECH_EXPLAINER)
+        assertTrue(techComposed.contains("IMPORTANT FOR Viral HUD & Motion Explainer"))
+        assertTrue(techComposed.contains("\"callout_banner\""))
+        assertTrue(techComposed.contains("\"hud_label\""))
+        assertTrue(techComposed.contains("\"hud_from_value\""))
+        assertTrue(techComposed.contains("\"hud_to_value\""))
+        assertTrue(techComposed.contains("\"checklist_items\""))
     }
 
     @Test

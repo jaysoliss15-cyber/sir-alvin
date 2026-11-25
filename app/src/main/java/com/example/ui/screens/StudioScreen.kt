@@ -92,7 +92,9 @@ import com.example.data.BuiltInPrompts
 import com.example.model.ActorAction
 import com.example.model.ActorRole
 import com.example.model.AnimationStyle
+import com.example.model.HudWidget
 import com.example.model.PipelineStep
+import com.example.model.StatusPill
 import com.example.model.WorldFx
 import com.example.render.SceneCompositor
 import com.example.ui.theme.ForgeAmber
@@ -122,6 +124,8 @@ fun StudioScreen(
     val demoRole by viewModel.demoActorRole.collectAsStateWithLifecycle()
     val demoAction by viewModel.demoActorAction.collectAsStateWithLifecycle()
     val demoFx by viewModel.demoWorldFx.collectAsStateWithLifecycle()
+    val demoPill by viewModel.demoStatusPill.collectAsStateWithLifecycle()
+    val demoHudWidget by viewModel.demoHudWidget.collectAsStateWithLifecycle()
 
     val activeTemplate = settings.activeTemplate
     var showPromptEditor by remember { mutableStateOf(false) }
@@ -499,7 +503,7 @@ fun StudioScreen(
             // 3. HORIZONTAL ANIMATION STYLE PRESET CARDS
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Animation Style Preset (5 Engines)",
+                    text = "Animation Style Preset (6 Engines)",
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(horizontal = 2.dp)
                 )
@@ -711,7 +715,9 @@ fun StudioScreen(
                 generatedScenes = progress.generatedScenesPreview,
                 demoRole = demoRole,
                 demoAction = demoAction,
-                demoFx = demoFx
+                demoFx = demoFx,
+                demoPill = demoPill,
+                demoHudWidget = demoHudWidget
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -914,12 +920,16 @@ private fun LiveCanvasPreviewCard(
     generatedScenes: List<com.example.model.TimelineScene>,
     demoRole: ActorRole,
     demoAction: ActorAction,
-    demoFx: WorldFx
+    demoFx: WorldFx,
+    demoPill: StatusPill,
+    demoHudWidget: HudWidget
 ) {
-    val activeScenes = remember(generatedScenes, demoRole, demoAction, demoFx) {
+    val activeScenes = remember(
+        generatedScenes, selectedStyle, demoRole, demoAction, demoFx, demoPill, demoHudWidget
+    ) {
         if (generatedScenes.isNotEmpty()) generatedScenes else viewModel.buildDemoPreviewScenes()
     }
-    val totalDurMs = activeScenes.lastOrNull()?.endMs?.coerceAtLeast(1000.0) ?: 4000.0
+    val totalDurMs = activeScenes.lastOrNull()?.endMs?.coerceAtLeast(1000.0) ?: 4200.0
 
     Card(
         colors = CardDefaults.cardColors(containerColor = StudioSurface),
@@ -1042,6 +1052,39 @@ private fun LiveCanvasPreviewCard(
                             selected = fx == demoFx,
                             onClick = { viewModel.setDemoWorldFx(fx) },
                             label = { Text(fx.name, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+                Text(
+                    text = "Test Kinetic HUD Pill & Telemetry Widget:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    StatusPill.entries.forEach { pill ->
+                        FilterChip(
+                            selected = pill == demoPill,
+                            onClick = { viewModel.setDemoStatusPill(pill) },
+                            label = { Text("Pill: ${pill.name}", style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    HudWidget.entries.forEach { widget ->
+                        FilterChip(
+                            selected = widget == demoHudWidget,
+                            onClick = { viewModel.setDemoHudWidget(widget) },
+                            label = { Text("HUD: ${widget.name}", style = MaterialTheme.typography.labelSmall) }
                         )
                     }
                 }

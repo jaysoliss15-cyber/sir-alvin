@@ -70,10 +70,10 @@ object WorldFxAndCaptionRenderer {
                     canvas.drawRect(gx, gy, gx + 3f * u, gy + 3f * u, grainPaint)
                 }
             }
-            AnimationStyle.FLAT_VECTOR -> {
-                // Floating subtle infographic accents
+            AnimationStyle.FLAT_VECTOR, AnimationStyle.TECH_EXPLAINER -> {
+                // Floating subtle infographic accents / HUD blueprint grid dots
                 val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = 0x332DD4BF
+                    color = if (style == AnimationStyle.TECH_EXPLAINER) 0x4400E5FF else 0x332DD4BF
                     setStyle(Paint.Style.STROKE)
                     strokeWidth = 5f * u
                 }
@@ -86,6 +86,20 @@ object WorldFxAndCaptionRenderer {
             }
             else -> Unit
         }
+    }
+
+    private val HIGHLIGHT_KEYWORDS = setOf(
+        "SIKRETO", "LIBRE", "MALI", "TAMA", "IPON", "YAMAN", "BAKIT",
+        "DELIKADO", "LAKAS", "PERA", "GRABE", "HINDI", "SAHOD", "UTANG",
+        "NEGOSYO", "DISKARTE", "GOAL", "SOLUSYON"
+    )
+
+    private fun isEmphasizedWord(word: String): Boolean {
+        val clean = word.trim().replace(Regex("[^\\p{L}\\p{N}₱%]"), "")
+        if (clean.isEmpty()) return false
+        if (word.contains("₱") || word.contains("%") || clean.any { it.isDigit() }) return true
+        if (clean.uppercase() in HIGHLIGHT_KEYWORDS) return true
+        return clean.length >= 3 && clean == clean.uppercase() && clean.any { it.isLetter() }
     }
 
     fun drawKaraokeCaptions(
@@ -107,7 +121,7 @@ object WorldFxAndCaptionRenderer {
         if (words.isEmpty()) return
 
         // Group words into crisp 3-word karaoke chunks for viral 9:16 readability
-        val activeWordIdx = words.indexOfFirst { currentMs in it.startMs..it.endMs }
+        val activeWordIdx = words.indexOfFirst { currentMs >= it.startMs && currentMs <= it.endMs }
             .let { if (it == -1) words.indexOfLast { w -> currentMs >= w.startMs }.coerceAtLeast(0) else it }
 
         val chunkSize = 3
@@ -138,27 +152,42 @@ object WorldFxAndCaptionRenderer {
         val totalW = wordWidths.sum() + spaceW * (visibleWords.size - 1).coerceAtLeast(0)
         val startX = (w - totalW) * 0.5f
 
-        // Background pill for FLAT_VECTOR
-        if (style == AnimationStyle.FLAT_VECTOR) {
-            val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xE6101524.toInt() }
-            val padX = 38f * u
+        // Background pill for FLAT_VECTOR and TECH_EXPLAINER
+        if (style == AnimationStyle.FLAT_VECTOR || style == AnimationStyle.TECH_EXPLAINER) {
+            val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = if (style == AnimationStyle.TECH_EXPLAINER) 0xEB0B101C.toInt() else 0xE6101524.toInt()
+            }
+            val padX = 40f * u
             val padY = 26f * u
-            canvas.drawRoundRect(
-                RectF(
-                    startX - padX,
-                    captionCenterY - textSizePx - padY * 0.4f,
-                    startX + totalW + padX,
-                    captionCenterY + padY
-                ),
-                28f * u, 28f * u, pillPaint
+            val pillRect = RectF(
+                startX - padX,
+                captionCenterY - textSizePx - padY * 0.4f,
+                startX + totalW + padX,
+                captionCenterY + padY
             )
+            canvas.drawRoundRect(pillRect, 28f * u, 28f * u, pillPaint)
+            if (style == AnimationStyle.TECH_EXPLAINER) {
+                val pillBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = 0x5500E5FF
+                    setStyle(Paint.Style.STROKE)
+                    strokeWidth = 3f * u
+                }
+                canvas.drawRoundRect(pillRect, 28f * u, 28f * u, pillBorder)
+            }
         }
 
         var cursorX = startX
         visibleWords.forEachIndexed { localIdx, wt ->
             val globalIdx = startIdx + localIdx
             val isActive = globalIdx == activeWordIdx
-            val popScale = if (isActive) 1.12f else 1.0f
+            val isKeyword = isEmphasizedWord(wt.word)
+
+            // 0.12s spring scale-pop (1.22x -> 1.0x) on the currently spoken word
+            val popScale = if (isActive) {
+                val elapsedSec = ((currentMs - wt.startMs) / 1000.0).toFloat().coerceAtLeast(0f)
+                val popFrac = (elapsedSec / 0.12f).coerceIn(0f, 1f)
+                1.22f - 0.22f * Easing.cubicBezier(0.16f, 1f, 0.3f, 1f, popFrac)
+            } else 1.0f
 
             canvas.save()
             val wordW = wordWidths[localIdx]
@@ -168,33 +197,61 @@ object WorldFxAndCaptionRenderer {
                 AnimationStyle.PAPER_DIORAMA -> {
                     strokePaint.color = Color.BLACK
                     strokePaint.strokeWidth = 14f * u
-                    fillPaint.color = if (isActive) 0xFFFFD166.toInt() else Color.WHITE
+                    fillPaint.color = when {
+                        isActive -> 0xFFFFD166.toInt()
+                        isKeyword -> 0xFF38BDF8.toInt()
+                        else -> Color.WHITE
+                    }
                     canvas.drawText(wt.word, cursorX, captionCenterY, strokePaint)
                     canvas.drawText(wt.word, cursorX, captionCenterY, fillPaint)
                 }
                 AnimationStyle.STICKMAN_WHITEBOARD -> {
                     strokePaint.color = 0xFFFAF6EE.toInt()
                     strokePaint.strokeWidth = 10f * u
-                    fillPaint.color = if (isActive) 0xFFD9383A.toInt() else 0xFF1A1D26.toInt()
+                    fillPaint.color = when {
+                        isActive -> 0xFFD9383A.toInt()
+                        isKeyword -> 0xFF0369A1.toInt()
+                        else -> 0xFF1A1D26.toInt()
+                    }
                     canvas.drawText(wt.word, cursorX, captionCenterY, strokePaint)
                     canvas.drawText(wt.word, cursorX, captionCenterY, fillPaint)
                 }
                 AnimationStyle.FLAT_VECTOR -> {
-                    fillPaint.color = if (isActive) 0xFFFFE066.toInt() else 0xFFF8FAFC.toInt()
+                    fillPaint.color = when {
+                        isActive -> 0xFFFFE066.toInt()
+                        isKeyword -> 0xFF2DD4BF.toInt()
+                        else -> 0xFFF8FAFC.toInt()
+                    }
                     canvas.drawText(wt.word, cursorX, captionCenterY, fillPaint)
                 }
                 AnimationStyle.DARK_SUSPENSE -> {
                     strokePaint.color = 0xFF050509.toInt()
                     strokePaint.strokeWidth = 14f * u
-                    fillPaint.color = if (isActive) 0xFFFF4D4D.toInt() else 0xFFE2E8F0.toInt()
+                    fillPaint.color = when {
+                        isActive -> 0xFFFF4D4D.toInt()
+                        isKeyword -> 0xFFFFB300.toInt()
+                        else -> 0xFFE2E8F0.toInt()
+                    }
                     canvas.drawText(wt.word, cursorX, captionCenterY, strokePaint)
                     canvas.drawText(wt.word, cursorX, captionCenterY, fillPaint)
                 }
                 AnimationStyle.CHIBI_STORYTIME -> {
                     strokePaint.color = if (isActive) 0xFFDB2777.toInt() else 0xFF6D28D9.toInt()
                     strokePaint.strokeWidth = 14f * u
-                    fillPaint.color = if (isActive) 0xFFFFF0F6.toInt() else Color.WHITE
+                    fillPaint.color = when {
+                        isActive -> 0xFFFFF0F6.toInt()
+                        isKeyword -> 0xFFFFE066.toInt()
+                        else -> Color.WHITE
+                    }
                     canvas.drawText(wt.word, cursorX, captionCenterY, strokePaint)
+                    canvas.drawText(wt.word, cursorX, captionCenterY, fillPaint)
+                }
+                AnimationStyle.TECH_EXPLAINER -> {
+                    fillPaint.color = when {
+                        isActive -> 0xFF00E676.toInt()
+                        isKeyword -> 0xFFFFD166.toInt()
+                        else -> 0xFFF8FAFC.toInt()
+                    }
                     canvas.drawText(wt.word, cursorX, captionCenterY, fillPaint)
                 }
             }

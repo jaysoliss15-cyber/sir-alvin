@@ -3,7 +3,9 @@ package com.example.llm
 import com.example.model.ActorAction
 import com.example.model.ActorRole
 import com.example.model.CameraMotion
+import com.example.model.HudWidget
 import com.example.model.SceneScript
+import com.example.model.StatusPill
 import com.example.model.WorldFx
 import org.json.JSONArray
 import org.json.JSONObject
@@ -87,6 +89,26 @@ object JsonSanitizer {
             throw MalformedSceneJsonException("Scene[$index] has empty background_prompt")
         }
 
+        // Backward-compatible optional HUD & kinetic motion-graphics fields
+        val statusPill = StatusPill.fromRaw(obj.optString("status_pill", "NONE"))
+        val calloutBanner = obj.optString("callout_banner", "").trim()
+        val hudWidget = HudWidget.fromRaw(obj.optString("hud_widget", "NONE"))
+        val hudLabel = obj.optString("hud_label", "").trim()
+        val hudFrom = obj.optInt("hud_from_value", 0).coerceIn(0, 100)
+        val hudTo = obj.optInt("hud_to_value", 100).coerceIn(0, 100)
+
+        val checklistArray = obj.optJSONArray("checklist_items")
+        val checklistItems = if (checklistArray != null) {
+            buildList {
+                for (k in 0 until minOf(4, checklistArray.length())) {
+                    val item = checklistArray.optString(k, "").trim()
+                    if (item.isNotEmpty()) add(item)
+                }
+            }
+        } else {
+            emptyList()
+        }
+
         return SceneScript(
             sceneId = sceneId,
             tagalogNarration = narration,
@@ -94,7 +116,14 @@ object JsonSanitizer {
             cameraMotion = CameraMotion.fromRaw(camRaw),
             actorRole = ActorRole.fromRaw(roleRaw),
             actorAction = ActorAction.fromRaw(actionRaw),
-            worldFx = WorldFx.fromRaw(fxRaw)
+            worldFx = WorldFx.fromRaw(fxRaw),
+            statusPill = statusPill,
+            calloutBanner = calloutBanner,
+            hudWidget = hudWidget,
+            hudLabel = hudLabel,
+            hudFromValue = hudFrom,
+            hudToValue = hudTo,
+            checklistItems = checklistItems
         )
     }
 }
