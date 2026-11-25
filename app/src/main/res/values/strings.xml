@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">ToonForge Tagalog</string>
+    <string name="tab_studio">Studio</string>
+    <string name="tab_videos">Videos</string>
+    <string name="tab_settings">API &amp; Settings</string>
+    <string name="studio_subtitle">9:16 Tagalog Storytelling Engine</string>
+    <string name="topic_hint">e.g. Bakit laging walang ipon kahit malaki ang sahod?</string>
+    <string name="random_idea_btn">Random Viral Tagalog Idea</string>
+    <string name="generate_video_cta">Generate Animated Video</string>
+    <string name="cancel_generation_cta">Cancel Render</string>
+    <string name="import_txt_btn">Import .txt</string>
+    <string name="edit_prompt_btn">Edit Prompt</string>
+    <string name="save_changes_btn">Save Changes</string>
+    <string name="reset_prompt_btn">Reset</string>
+    <string name="notification_channel_name">Video Generation</string>
+    <string name="notification_channel_desc">Shows live progress while ToonForge renders your 1080x1920 Tagalog video.</string>
+    <string name="empty_videos_title">No rendered videos yet</string>
+    <string name="empty_videos_tip">Create your first viral 1080x1920 Tagalog story in the Studio tab and it will appear here in Movies/ToonForgeTagalog.</string>
+    <string name="optional_horde_note">Optional — defaults to free keyless AI Horde</string>
+</resources>

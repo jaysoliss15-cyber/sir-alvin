@@ -1,0 +1,6 @@
+{
+  "name": "ToonForge Tagalog",
+  "description": "On-device 1080x1920 2D/2.5D animated Tagalog storytelling video studio with multi-style presets, puppet rigging, and EGL14 MP4 export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
